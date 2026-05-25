@@ -39,7 +39,7 @@ int main() {
       bool isBuiltInCommand = false;
       for (auto item : BUIT_IN_TYPES) {
         if (prompt == item) {
-          std::cout << prompt << " is a shell built in \n";
+          std::cout << prompt << " is a shell builtin \n";
           isBuiltInCommand = true;
           break;
         } else {
