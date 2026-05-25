@@ -17,6 +17,10 @@ int main() {
   while (true) {
     const std::string command = readUserCommand();
 
+    if (command == "exit") {
+      break;
+    }
+
     std::cout << command << ": command not found \n";
   }
 }
