@@ -18,6 +18,24 @@ void printInvalidCommand(const std::string &command) {
   std::cout << command << ": not found \n";
 }
 
+void echo(const std::string &message) { std::cout << message << "\n"; }
+
+void type(const std::string &type) {
+  bool isBuiltInCommand = false;
+  for (auto item : BUIT_IN_TYPES) {
+    if (type == item) {
+      std::cout << type << " is a shell builtin \n";
+      isBuiltInCommand = true;
+      break;
+    } else {
+      isBuiltInCommand = false;
+    }
+  }
+  if (!isBuiltInCommand) {
+    printInvalidCommand(type);
+  }
+}
+
 int main() {
   // Flush after every std::cout / std:cerr
   std::cout << std::unitbuf;
@@ -29,27 +47,15 @@ int main() {
     if (input == "exit") {
       break;
     }
-
+    std::string message = "";
     std::string command = input.substr(0, ECHO.size());
     if (command == ECHO) {
-      std::string prompt = input.substr(ECHO.size() + 1, input.size());
-      std::cout << prompt << "\n";
+      message = input.substr(ECHO.size() + 1, input.size());
+      echo(message);
     } else if (command == TYPE) {
-      std::string prompt = input.substr(TYPE.size() + 1);
-      bool isBuiltInCommand = false;
-      for (auto item : BUIT_IN_TYPES) {
-        if (prompt == item) {
-          std::cout << prompt << " is a shell builtin \n";
-          isBuiltInCommand = true;
-          break;
-        } else {
-          isBuiltInCommand = false;
-        }
-      }
-      if (!isBuiltInCommand) {
-        printInvalidCommand(prompt);
-      }
 
+      message = input.substr(TYPE.size() + 1);
+      type(message);
     } else {
       printInvalidCommand(input);
     }
