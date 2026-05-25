@@ -24,8 +24,8 @@ int main() {
 
     std::string echo = command.substr(0, ECHO.size());
     if (echo == ECHO) {
-      std::string prompt = command.substr(ECHO.size(), command.size());
-      std::cout << prompt;
+      std::string prompt = command.substr(ECHO.size() + 1, command.size());
+      std::cout << prompt << "\n";
     } else {
       std::cout << command << ": command not found \n";
     }
