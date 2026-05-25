@@ -3,10 +3,10 @@
 
 std::string readUserCommand() {
 
-  std::string message = "";
+  std::string command = "";
   std::cout << "$ ";
-  std::cin >> message;
-  return message;
+  std::getline(std::cin, command);
+  return command;
 }
 
 int main() {
@@ -14,7 +14,9 @@ int main() {
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
 
-  const std::string command = readUserCommand();
+  while (true) {
+    const std::string command = readUserCommand();
 
-  std::cout << command << ": command not found";
+    std::cout << command << ": command not found \n";
+  }
 }
