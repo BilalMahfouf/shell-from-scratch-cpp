@@ -1,6 +1,12 @@
 #include <array>
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <string>
+
+using namespace std;
+
+namespace fs = std::filesystem;
 
 std::string readUserCommand() {
   std::string command = "";
@@ -20,6 +26,40 @@ void printInvalidCommand(const std::string &command) {
 
 void echo(const std::string &message) { std::cout << message << "\n"; }
 
+bool isExecutable(const fs::path &p) {
+  fs::file_status s = fs::status(p);
+  auto perms = s.permissions();
+
+  // Check if any execute bit is set (owner, group, or others)
+  return (perms & fs::perms::owner_exec) != fs::perms::none ||
+         (perms & fs::perms::group_exec) != fs::perms::none ||
+         (perms & fs::perms::others_exec) != fs::perms::none;
+}
+
+string getExecutableCommandPath(const std::string &command) {
+  const char *env = std::getenv("PATH");
+  string path = env;
+  size_t start = 0;
+
+  while (true) {
+    size_t end = path.find(':', start);
+    string dir = path.substr(start, end - start);
+
+    if (end == string::npos) {
+      break;
+    }
+
+    filesystem::path fullPath = filesystem::path(dir) / command;
+
+    if (filesystem::exists(fullPath) && filesystem::is_regular_file(fullPath) &&
+        isExecutable(fullPath)) {
+      return fullPath.string();
+    }
+    ++start;
+  }
+  return "";
+}
+
 void type(const std::string &type) {
   bool isBuiltInCommand = false;
   for (auto item : BUIT_IN_TYPES) {
@@ -32,7 +72,12 @@ void type(const std::string &type) {
     }
   }
   if (!isBuiltInCommand) {
-    printInvalidCommand(type);
+    string path = getExecutableCommandPath(type);
+    if (path.empty()) {
+      printInvalidCommand(type);
+    } else {
+      cout << type << " is " << path << endl;
+    }
   }
 }
 
