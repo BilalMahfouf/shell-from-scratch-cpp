@@ -15,7 +15,7 @@ const std::string TYPE = "type";
 const std::array<std::string, 3> BUIT_IN_TYPES = {ECHO, TYPE, "exit"};
 
 void printInvalidCommand(const std::string &command) {
-  std::cout << command << ": command not found \n";
+  std::cout << command << ": not found \n";
 }
 
 int main() {
