@@ -2,12 +2,13 @@
 #include <string>
 
 std::string readUserCommand() {
-
   std::string command = "";
   std::cout << "$ ";
   std::getline(std::cin, command);
   return command;
 }
+
+const std::string ECHO = "echo";
 
 int main() {
   // Flush after every std::cout / std:cerr
@@ -21,6 +22,11 @@ int main() {
       break;
     }
 
-    std::cout << command << ": command not found \n";
+    std::string echo = command.substr(0, ECHO.size());
+    if (echo == ECHO) {
+      std::cout << command.substr(ECHO.size(), command.size()) << "\n";
+    } else {
+      std::cout << command << ": command not found \n";
+    }
   }
 }
