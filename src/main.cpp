@@ -55,7 +55,7 @@ string getExecutableCommandPath(const std::string &command) {
         isExecutable(fullPath)) {
       return fullPath.string();
     }
-    ++start;
+    start = end + 1;
   }
   return "";
 }
