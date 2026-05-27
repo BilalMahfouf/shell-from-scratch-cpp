@@ -1,9 +1,11 @@
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unistd.h>
 #include <vector>
 
 using namespace std;
@@ -16,12 +18,17 @@ std::string readUserCommand() {
   std::getline(std::cin, command);
   return command;
 }
+bool isNullOrWhiteSpace(const std::string &s) {
+  return std::all_of(s.begin(), s.end(),
+                     [](unsigned char c) { return std::isspace(c); }) ||
+         s.empty();
+}
 
 const std::string ECHO = "echo";
 const std::string TYPE = "type";
 const std::string EXIT = "exit";
 
-enum class Command { Exit = 0, Echo, Type, None };
+enum class Command { Exit = 0, Echo, Type, Pwd, None };
 
 Command getEnumCommand(const string &str) {
   if (str == "exit")
@@ -30,6 +37,8 @@ Command getEnumCommand(const string &str) {
     return Command::Echo;
   if (str == "type")
     return Command::Type;
+  if (str == "pwd")
+    return Command::Pwd;
 
   return Command::None;
 }
@@ -41,6 +50,8 @@ std::string getStringCommand(const Command &command) {
     return "exit";
   case Command::Type:
     return "type";
+  case Command::Pwd:
+    return "pwd";
   }
   return "";
 }
@@ -120,6 +131,15 @@ void runProgram(const std::string &input) {
   std::system(input.c_str());
 }
 
+std::string getCurrentWorkingDirectory() {
+  try {
+    fs::path currentDir = fs::current_path();
+    return currentDir.string();
+  } catch (const fs::filesystem_error &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
+  }
+  return "";
+}
 void execute() {
   while (true) {
     const std::string input = readUserCommand();
@@ -136,6 +156,13 @@ void execute() {
       message = input.substr(getStringCommand(Command::Type).size() + 1);
       type(message);
       break;
+    case Command::Pwd: {
+      const std::string currentPath = getCurrentWorkingDirectory();
+      if (!isNullOrWhiteSpace(currentPath)) {
+        std::cout << currentPath << endl;
+      }
+      break;
+    }
     case Command::None:
       runProgram(input);
       break;
