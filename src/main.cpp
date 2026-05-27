@@ -155,9 +155,9 @@ void cd(const std::string &absolutePath) {
       std::cout << "cd: " << absolutePath << " No such file or directory";
       // std::cerr << "Error: " << e.what() << std::endl;
     }
+  } else {
+    std::cerr << "Please provide an absolute path " << endl;
   }
-
-  std::cerr << "Please provide an absolute path " << endl;
 }
 void execute() {
   while (true) {
