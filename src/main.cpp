@@ -124,7 +124,6 @@ void execute() {
       echo(message);
       break;
     case Command::Type:
-      std::cout << endl << (int)command << endl;
       message = input.substr(getStringCommand(Command::Type).size() + 1);
       type(message);
       break;
