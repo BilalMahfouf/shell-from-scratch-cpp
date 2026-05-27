@@ -152,7 +152,8 @@ void cd(const std::string &absolutePath) {
       fs::current_path(absolutePath);
       return;
     } catch (const fs::filesystem_error &e) {
-      std::cout << "cd: " << absolutePath << " No such file or directory";
+      std::cout << "cd: " << absolutePath << " No such file or directory"
+                << endl;
       // std::cerr << "Error: " << e.what() << std::endl;
     }
   } else {
