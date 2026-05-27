@@ -28,7 +28,7 @@ const std::string ECHO = "echo";
 const std::string TYPE = "type";
 const std::string EXIT = "exit";
 
-enum class Command { Exit = 0, Echo, Type, Pwd, None };
+enum class Command { Exit = 0, Echo, Type, Pwd, Cd, None };
 
 Command getEnumCommand(const string &str) {
   if (str == "exit")
@@ -39,6 +39,8 @@ Command getEnumCommand(const string &str) {
     return Command::Type;
   if (str == "pwd")
     return Command::Pwd;
+  if (str == "cd")
+    return Command::Cd;
 
   return Command::None;
 }
@@ -52,6 +54,8 @@ std::string getStringCommand(const Command &command) {
     return "type";
   case Command::Pwd:
     return "pwd";
+  case Command::Cd:
+    return "cd";
   }
   return "";
 }
@@ -140,6 +144,21 @@ std::string getCurrentWorkingDirectory() {
   }
   return "";
 }
+void cd(const std::string &absolutePath) {
+  if (isNullOrWhiteSpace(absolutePath))
+    return;
+  std::cout << absolutePath << endl;
+  if (absolutePath.at(0) == '/' || absolutePath.at(0) == '~') {
+    try {
+      fs::current_path(absolutePath);
+      return;
+    } catch (const fs::filesystem_error &e) {
+      std::cerr << "Error: " << e.what() << std::endl;
+    }
+  }
+
+  std::cerr << "Please provide an absolute path " << endl;
+}
 void execute() {
   while (true) {
     const std::string input = readUserCommand();
@@ -163,6 +182,10 @@ void execute() {
       }
       break;
     }
+    case Command::Cd:
+      message = input.substr(getStringCommand(Command::Cd).size() + 1);
+      cd(message);
+      break;
     case Command::None:
       runProgram(input);
       break;
