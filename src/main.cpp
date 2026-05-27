@@ -2,7 +2,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <sstream>
 #include <string>
+#include <vector>
 
 using namespace std;
 
@@ -24,7 +26,7 @@ void printInvalidCommand(const std::string &command) {
   std::cout << command << ": not found \n";
 }
 
-void echo(const std::string &message) { std::cout << message << "\n"; }
+void echo(const std::string &message) { std::cout << message << endl; }
 
 bool isExecutable(const fs::path &p) {
   fs::file_status s = fs::status(p);
@@ -81,6 +83,16 @@ void type(const std::string &type) {
   }
 }
 
+std::vector<string> split(const string &str, const char &separator) {
+  std::stringstream ss(str);
+  std::string temp = "";
+  std::vector<string> splitedString = {};
+  while (std::getline(ss, temp, separator)) {
+    splitedString.push_back(temp);
+  }
+  return splitedString;
+}
+
 int main() {
   // Flush after every std::cout / std:cerr
   std::cout << std::unitbuf;
@@ -88,14 +100,14 @@ int main() {
 
   while (true) {
     const std::string input = readUserCommand();
+    const std::string command = split(input, ' ').front();
 
-    if (input == "exit") {
+    if (command == "exit") {
       break;
     }
     std::string message = "";
-    std::string command = input.substr(0, ECHO.size());
     if (command == ECHO) {
-      message = input.substr(ECHO.size() + 1, input.size());
+      message = input.substr(command.size() + 1);
       echo(message);
     } else if (command == TYPE) {
 
