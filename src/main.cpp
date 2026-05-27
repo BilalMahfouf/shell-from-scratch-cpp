@@ -110,6 +110,15 @@ std::vector<string> split(const string &str, const char &separator) {
   }
   return splitedString;
 }
+void runProgram(const std::string &input) {
+  const std::string command = split(input, ' ').front();
+  const std::string commandPath = getExecutableCommandPath(command);
+  if (commandPath == "") {
+    printInvalidCommand(command);
+    return;
+  }
+  std::system(input.c_str());
+}
 
 void execute() {
   while (true) {
@@ -128,7 +137,7 @@ void execute() {
       type(message);
       break;
     case Command::None:
-      printInvalidCommand(input);
+      runProgram(input);
       break;
     }
   }
