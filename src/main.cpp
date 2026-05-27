@@ -1,11 +1,9 @@
 #include <array>
 #include <cstdlib>
 #include <filesystem>
-#include <functional>
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 using namespace std;
@@ -30,7 +28,7 @@ Command getEnumCommand(const string &str) {
     return Command::Exit;
   if (str == "echo")
     return Command::Echo;
-  if (str == "Type")
+  if (str == "type")
     return Command::Type;
 
   return Command::None;
@@ -124,16 +122,16 @@ void execute() {
     case Command::Echo:
       message = input.substr(getStringCommand(Command::Echo).size() + 1);
       echo(message);
-      return;
+      break;
     case Command::Type:
+      std::cout << endl << (int)command << endl;
       message = input.substr(getStringCommand(Command::Type).size() + 1);
       type(message);
-      return;
+      break;
     case Command::None:
       printInvalidCommand(input);
-      return;
+      break;
     }
-    return;
   }
 }
 int main() {
