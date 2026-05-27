@@ -1,9 +1,11 @@
 #include <array>
 #include <cstdlib>
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 using namespace std;
@@ -19,8 +21,33 @@ std::string readUserCommand() {
 
 const std::string ECHO = "echo";
 const std::string TYPE = "type";
+const std::string EXIT = "exit";
 
-const std::array<std::string, 3> BUIT_IN_TYPES = {ECHO, TYPE, "exit"};
+enum class Command { Exit = 0, Echo, Type, None };
+
+Command getEnumCommand(const string &str) {
+  if (str == "exit")
+    return Command::Exit;
+  if (str == "echo")
+    return Command::Echo;
+  if (str == "Type")
+    return Command::Type;
+
+  return Command::None;
+}
+std::string getStringCommand(const Command &command) {
+  switch (command) {
+  case Command::Echo:
+    return "echo";
+  case Command::Exit:
+    return "exit";
+  case Command::Type:
+    return "type";
+  }
+  return "";
+}
+
+const std::array<std::string, 3> BUIT_IN_TYPES = {ECHO, TYPE, EXIT};
 
 void printInvalidCommand(const std::string &command) {
   std::cout << command << ": not found \n";
@@ -63,23 +90,16 @@ string getExecutableCommandPath(const std::string &command) {
 }
 
 void type(const std::string &type) {
-  bool isBuiltInCommand = false;
-  for (auto item : BUIT_IN_TYPES) {
-    if (type == item) {
-      std::cout << type << " is a shell builtin \n";
-      isBuiltInCommand = true;
-      break;
-    } else {
-      isBuiltInCommand = false;
-    }
-  }
-  if (!isBuiltInCommand) {
+  const Command command = getEnumCommand(type);
+  if (command == Command::None) {
     string path = getExecutableCommandPath(type);
     if (path.empty()) {
       printInvalidCommand(type);
     } else {
       cout << type << " is " << path << endl;
     }
+  } else {
+    std::cout << type << " is a shell builtin" << endl;
   }
 }
 
@@ -93,28 +113,33 @@ std::vector<string> split(const string &str, const char &separator) {
   return splitedString;
 }
 
+void execute() {
+  while (true) {
+    const std::string input = readUserCommand();
+    const Command command = getEnumCommand(split(input, ' ').front());
+    std::string message = "";
+    switch (command) {
+    case Command::Exit:
+      return;
+    case Command::Echo:
+      message = input.substr(getStringCommand(Command::Echo).size() + 1);
+      echo(message);
+      return;
+    case Command::Type:
+      message = input.substr(getStringCommand(Command::Type).size() + 1);
+      type(message);
+      return;
+    case Command::None:
+      printInvalidCommand(input);
+      return;
+    }
+    return;
+  }
+}
 int main() {
   // Flush after every std::cout / std:cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
 
-  while (true) {
-    const std::string input = readUserCommand();
-    const std::string command = split(input, ' ').front();
-
-    if (command == "exit") {
-      break;
-    }
-    std::string message = "";
-    if (command == ECHO) {
-      message = input.substr(command.size() + 1);
-      echo(message);
-    } else if (command == TYPE) {
-
-      message = input.substr(TYPE.size() + 1);
-      type(message);
-    } else {
-      printInvalidCommand(input);
-    }
-  }
+  execute();
 }
