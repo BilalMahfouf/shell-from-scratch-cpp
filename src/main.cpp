@@ -147,7 +147,7 @@ std::string getCurrentWorkingDirectory() {
 void cd(const std::string &absolutePath) {
   if (isNullOrWhiteSpace(absolutePath))
     return;
-  if (absolutePath.at(0) == '/' || absolutePath.at(0) == '~') {
+  if (absolutePath.at(0) == '/' || absolutePath.at(0) == '.') {
     try {
       fs::current_path(absolutePath);
       return;
