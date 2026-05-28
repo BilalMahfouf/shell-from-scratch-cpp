@@ -1,4 +1,3 @@
-#pragma once
 #include "str.h"
 #include <algorithm>
 #include <array>
@@ -69,7 +68,12 @@ void printInvalidCommand(const std::string &command) {
   std::cout << command << ": not found \n";
 }
 
-void echo(const std::string &message) { std::cout << message << endl; }
+void echo(const std::string &message) {
+  const std::vector<string> messages = str::Split(message, " ");
+  const std::string newMessage = str::JoinString(messages, " ");
+
+  std::cout << newMessage << endl;
+}
 
 bool isExecutable(const fs::path &p) {
   fs::file_status s = fs::status(p);
