@@ -68,10 +68,20 @@ void printInvalidCommand(const std::string &command) {
   std::cout << command << ": not found \n";
 }
 
-void echo(const std::string &message) {
-  const std::vector<string> messages = str::Split(message, " ");
-  const std::string newMessage = str::JoinString(messages, " ");
+std::string getInputWithoutSingleQuotes(const std::string &input) {
+  std::vector<string> messages = str::Split(input, "'");
+  return str::JoinString(messages, "");
+}
 
+void echo(const std::string &message) {
+  std::string newMessage = "";
+  if (message.find('\'') != std::string::npos) {
+    newMessage = getInputWithoutSingleQuotes(message);
+    std::cout << newMessage << endl;
+    return;
+  }
+  const std::vector<string> messages = str::Split(message, " ");
+  newMessage = str::JoinString(messages, " ");
   std::cout << newMessage << endl;
 }
 

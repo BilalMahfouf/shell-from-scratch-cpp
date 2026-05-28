@@ -361,6 +361,11 @@ public:
 
     return S2;
   }
+  static void print(const std::vector<string> strs, const std::string &delim) {
+    for (const auto &s : strs) {
+      cout << s << delim;
+    }
+  }
 
   void RemovePunctuations() { _Value = RemovePunctuations(_Value); }
 };
