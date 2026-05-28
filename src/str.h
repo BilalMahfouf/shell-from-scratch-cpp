@@ -1,16 +1,17 @@
+#pragma once
 #include <iostream>
 #include <vector>
 using namespace std;
 
-class clsString {
+class str {
 
 private:
   string _Value;
 
 public:
-  clsString() { _Value = ""; }
+  str() { _Value = ""; }
 
-  clsString(string Value) { _Value = Value; }
+  str(string Value) { _Value = Value; }
 
   void SetValue(string Value) { _Value = Value; }
 

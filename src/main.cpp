@@ -1,3 +1,4 @@
+#pragma once
 #include "str.h"
 #include <algorithm>
 #include <array>
@@ -170,7 +171,7 @@ void cd(const std::string &absolutePath) {
 }
 void execute() {
   while (true) {
-    const std::string input = readUserCommand();
+    const std::string input = str::Trim(readUserCommand());
     const Command command = getEnumCommand(split(input, ' ').front());
     std::string message = "";
     switch (command) {
@@ -178,11 +179,11 @@ void execute() {
       return;
     case Command::Echo:
       message = input.substr(getStringCommand(Command::Echo).size() + 1);
-      echo(message);
+      echo(str::Trim(message));
       break;
     case Command::Type:
       message = input.substr(getStringCommand(Command::Type).size() + 1);
-      type(message);
+      type(str::Trim(message));
       break;
     case Command::Pwd: {
       const std::string currentPath = getCurrentWorkingDirectory();
@@ -193,7 +194,7 @@ void execute() {
     }
     case Command::Cd:
       message = input.substr(getStringCommand(Command::Cd).size() + 1);
-      cd(message);
+      cd(str::Trim(message));
       break;
     case Command::None:
       runProgram(input);
