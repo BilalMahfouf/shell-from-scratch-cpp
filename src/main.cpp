@@ -1,3 +1,4 @@
+#include "str.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
