@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -155,6 +156,12 @@ void cd(const std::string &absolutePath) {
       std::cout << "cd: " << absolutePath << ": No such file or directory"
                 << endl;
       // std::cerr << "Error: " << e.what() << std::endl;
+    }
+  } else if (absolutePath.at(0) == '~') {
+    const char *homeEnv = std::getenv("HOME");
+    if (homeEnv != nullptr) {
+      const std::string path = homeEnv + absolutePath.substr(1);
+      fs::current_path(path);
     }
   } else {
     std::cerr << "Please provide an absolute path " << endl;
