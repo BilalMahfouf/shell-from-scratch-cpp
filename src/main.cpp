@@ -58,11 +58,11 @@ std::string getStringCommand(const Command &command) {
     return "pwd";
   case Command::Cd:
     return "cd";
+  case Command::None:
+    return "";
   }
   return "";
 }
-
-const std::array<std::string, 3> BUIT_IN_TYPES = {ECHO, TYPE, EXIT};
 
 void printInvalidCommand(const std::string &command) {
   std::cout << command << ": not found \n";
