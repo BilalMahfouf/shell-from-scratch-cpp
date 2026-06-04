@@ -1,5 +1,7 @@
+#include "Parser.hpp"
+#include "str.h"
 #include <algorithm>
-#include <array>
+#include <cstddef>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -28,7 +30,7 @@ const std::string ECHO = "echo";
 const std::string TYPE = "type";
 const std::string EXIT = "exit";
 
-enum class Command { Exit = 0, Echo, Type, Pwd, None };
+enum class Command { Exit = 0, Echo, Type, Pwd, Cd, None };
 
 Command getEnumCommand(const string &str) {
   if (str == "exit")
@@ -39,6 +41,8 @@ Command getEnumCommand(const string &str) {
     return Command::Type;
   if (str == "pwd")
     return Command::Pwd;
+  if (str == "cd")
+    return Command::Cd;
 
   return Command::None;
 }
@@ -52,17 +56,34 @@ std::string getStringCommand(const Command &command) {
     return "type";
   case Command::Pwd:
     return "pwd";
+  case Command::Cd:
+    return "cd";
+  case Command::None:
+    return "";
   }
   return "";
 }
-
-const std::array<std::string, 3> BUIT_IN_TYPES = {ECHO, TYPE, EXIT};
 
 void printInvalidCommand(const std::string &command) {
   std::cout << command << ": not found \n";
 }
 
-void echo(const std::string &message) { std::cout << message << endl; }
+std::string getInputWithoutSingleQuotes(const std::string &input) {
+  std::vector<string> messages = str::Split(input, "'");
+  return str::JoinString(messages, "");
+}
+
+void echo(const std::string &message) {
+  std::string newMessage = "";
+  if (message.find('\'') != std::string::npos) {
+    newMessage = getInputWithoutSingleQuotes(message);
+    std::cout << newMessage << endl;
+    return;
+  }
+  const std::vector<string> messages = str::Split(message, " ");
+  newMessage = str::JoinString(messages, " ");
+  std::cout << newMessage << endl;
+}
 
 bool isExecutable(const fs::path &p) {
   fs::file_status s = fs::status(p);
@@ -140,9 +161,31 @@ std::string getCurrentWorkingDirectory() {
   }
   return "";
 }
+void cd(const std::string &absolutePath) {
+  if (isNullOrWhiteSpace(absolutePath))
+    return;
+  if (absolutePath.at(0) == '/' || absolutePath.at(0) == '.') {
+    try {
+      fs::current_path(absolutePath);
+      return;
+    } catch (const fs::filesystem_error &e) {
+      std::cout << "cd: " << absolutePath << ": No such file or directory"
+                << endl;
+      // std::cerr << "Error: " << e.what() << std::endl;
+    }
+  } else if (absolutePath.at(0) == '~') {
+    const char *homeEnv = std::getenv("HOME");
+    if (homeEnv != nullptr) {
+      const std::string path = homeEnv + absolutePath.substr(1);
+      fs::current_path(path);
+    }
+  } else {
+    std::cerr << "Please provide an absolute path " << endl;
+  }
+}
 void execute() {
   while (true) {
-    const std::string input = readUserCommand();
+    const std::string input = str::Trim(readUserCommand());
     const Command command = getEnumCommand(split(input, ' ').front());
     std::string message = "";
     switch (command) {
@@ -150,11 +193,11 @@ void execute() {
       return;
     case Command::Echo:
       message = input.substr(getStringCommand(Command::Echo).size() + 1);
-      echo(message);
+      echo(str::Trim(message));
       break;
     case Command::Type:
       message = input.substr(getStringCommand(Command::Type).size() + 1);
-      type(message);
+      type(str::Trim(message));
       break;
     case Command::Pwd: {
       const std::string currentPath = getCurrentWorkingDirectory();
@@ -163,6 +206,10 @@ void execute() {
       }
       break;
     }
+    case Command::Cd:
+      message = input.substr(getStringCommand(Command::Cd).size() + 1);
+      cd(str::Trim(message));
+      break;
     case Command::None:
       runProgram(input);
       break;
@@ -174,5 +221,10 @@ int main() {
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
 
-  execute();
+  // execute();
+  const std::string input = readUserCommand();
+  Parser parser;
+  std::vector<Token> tokens = parser.ParseInput(input);
+  std::cout << tokens.size() << std::endl;
+  parser.printTokens(tokens);
 }
