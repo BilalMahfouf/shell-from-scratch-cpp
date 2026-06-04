@@ -1,6 +1,6 @@
+#include "Parser.hpp"
 #include "str.h"
 #include <algorithm>
-#include <array>
 #include <cstddef>
 #include <cstdlib>
 #include <filesystem>
@@ -221,5 +221,10 @@ int main() {
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
 
-  execute();
+  // execute();
+  const std::string input = readUserCommand();
+  Parser parser;
+  std::vector<Token> tokens = parser.ParseInput(input);
+  std::cout << tokens.size() << std::endl;
+  parser.printTokens(tokens);
 }
