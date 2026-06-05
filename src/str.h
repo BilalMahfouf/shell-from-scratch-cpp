@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <iostream>
 #include <vector>
 using namespace std;
@@ -368,4 +369,10 @@ public:
   }
 
   void RemovePunctuations() { _Value = RemovePunctuations(_Value); }
+
+  static bool isNullOrWhiteSpace(const std::string &s) {
+    return std::all_of(s.begin(), s.end(),
+                       [](unsigned char c) { return std::isspace(c); }) ||
+           s.empty();
+  }
 };

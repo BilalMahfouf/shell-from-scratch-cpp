@@ -61,12 +61,6 @@ private:
     bool isDoubleQuote = false;
 
     for (size_t i = 0; i < str.size(); ++i) {
-      if (i == (str.size() - 1)) {
-        std::cout << "hola";
-        token = createToken(tokenValue);
-        tokens.push_back(token);
-      }
-
       if (str[i] == ' ' && !isSingleQuote && !isDoubleQuote) {
         token = createToken(tokenValue);
         tokens.push_back(token);
@@ -75,14 +69,17 @@ private:
       }
       if (str[i] == '\'' && !isDoubleQuote) {
         isSingleQuote = !isSingleQuote;
-        continue;
-      }
-      if (str[i] == '\"' && !isSingleQuote) {
+      } else if (str[i] == '\"' && !isSingleQuote) {
         isDoubleQuote = !isDoubleQuote;
-        continue;
+      } else {
+
+        tokenValue += str[i];
       }
 
-      tokenValue += str[i];
+      if (i == (str.size() - 1)) {
+        token = createToken(tokenValue);
+        tokens.push_back(token);
+      }
     }
 
     return tokens;
