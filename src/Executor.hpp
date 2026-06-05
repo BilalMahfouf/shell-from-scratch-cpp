@@ -76,10 +76,11 @@ private:
       }
     }
   }
-  void executeCommand(Command command, const std::vector<Token> &tokens,
+  void executeCommand(std::string commandStr, const std::vector<Token> &tokens,
                       bool &exit) {
     std::vector<std::string> args = {};
     std::string message = "";
+    Command command = getEnumCommand(commandStr);
     exit = false;
 
     switch (command) {
@@ -103,21 +104,58 @@ private:
       }
       break;
     }
-      // case Command::Cd:
-      //   message = input.substr(getStringCommand(Command::Cd).size() + 1);
-      //   cd(str::Trim(message));
-      //   break;
-      // case Command::None:
-      //   runProgram(input);
-      //   break;
-      // }
+    case Command::Cd:
+      if (args.size() > 1) {
+        std::cout << endl << "-my-shell: cd: too many arguments" << endl;
+      }
+      message = args.front();
+      cd(str::Trim(message));
+      break;
+    case Command::None:
+      args = joinWords(tokens);
+      runProgram(commandStr, str::JoinString(args, " "));
+      break;
+    }
+  }
+  void runProgram(const std::string &command, const std::string &args) {
+    const std::string commandPath =
+        file_helpers::getExecutableCommandPath(command);
+    if (commandPath == "") {
+      printInvalidCommand(command);
+      return;
+    }
+    std::string newArgs = args;
+    newArgs.insert(0, command);
+
+    std::system(newArgs.c_str());
+  }
+  void cd(const std::string &absolutePath) {
+    if (str::isNullOrWhiteSpace(absolutePath))
+      return;
+    if (absolutePath.at(0) == '/' || absolutePath.at(0) == '.') {
+      try {
+        fs::current_path(absolutePath);
+        return;
+      } catch (const fs::filesystem_error &e) {
+        std::cout << "cd: " << absolutePath << ": No such file or directory"
+                  << endl;
+        // std::cerr << "Error: " << e.what() << std::endl;
+      }
+    } else if (absolutePath.at(0) == '~') {
+      const char *homeEnv = std::getenv("HOME");
+      if (homeEnv != nullptr) {
+        const std::string path = homeEnv + absolutePath.substr(1);
+        fs::current_path(path);
+      }
+    } else {
+      std::cerr << "Please provide an absolute path " << endl;
     }
   }
 
 public:
   void run(const std::vector<Token> &tokens, bool &exit) {
     if (tokens.at(0).type == TokenType::WORD) {
-      Command command = getEnumCommand(tokens.at(0).value);
+      std::string command = tokens.at(0).value;
       std::vector<Token> newTokens = tokens;
       newTokens.erase(newTokens.begin());
       executeCommand(command, newTokens, exit);
