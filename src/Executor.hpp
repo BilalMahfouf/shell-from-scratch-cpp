@@ -84,7 +84,6 @@ private:
 
     switch (command) {
     case Command::Exit:
-      std::cout << "\n exit:" << exit;
       exit = true;
       return;
     case Command::Echo:
@@ -118,7 +117,6 @@ private:
 public:
   void run(const std::vector<Token> &tokens, bool &exit) {
     if (tokens.at(0).type == TokenType::WORD) {
-      std::cout << "value: " << tokens.at(0).value << std::endl;
       Command command = getEnumCommand(tokens.at(0).value);
       std::vector<Token> newTokens = tokens;
       newTokens.erase(newTokens.begin());
