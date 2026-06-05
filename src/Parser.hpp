@@ -1,4 +1,5 @@
 #pragma once
+#include "str.h"
 #include <iostream>
 #include <string>
 #include <unordered_map>
@@ -62,6 +63,9 @@ private:
 
     for (size_t i = 0; i < str.size(); ++i) {
       if (str[i] == ' ' && !isSingleQuote && !isDoubleQuote) {
+        if (str::isNullOrWhiteSpace(tokenValue))
+          continue;
+
         token = createToken(tokenValue);
         tokens.push_back(token);
         tokenValue.clear();
