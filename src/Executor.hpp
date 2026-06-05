@@ -133,7 +133,9 @@ private:
       printInvalidCommand(command);
       return;
     }
-    std::string newArgs = command + " " + args + "\"";
+
+    std::string newArgs = command + "\"" + " " + args + "\"";
+    std::cout << endl << "args: " << newArgs << endl;
     std::system(newArgs.c_str());
   }
   void cd(const std::string &absolutePath) {
