@@ -78,7 +78,8 @@ private:
   }
   void executeCommand(std::string commandStr, const std::vector<Token> &tokens,
                       bool &exit) {
-    std::vector<std::string> args = {};
+    std::vector<std::string> args;
+
     std::string message = "";
     Command command = getEnumCommand(commandStr);
     exit = false;
@@ -88,10 +89,14 @@ private:
       exit = true;
       return;
     case Command::Echo:
+      if (tokens.empty())
+        return;
       args = joinWords(tokens);
       echo(args);
       break;
     case Command::Type:
+      if (tokens.empty())
+        return;
       args = joinWords(tokens);
       type(args);
       break;
@@ -105,6 +110,9 @@ private:
       break;
     }
     case Command::Cd:
+      if (tokens.empty())
+        return;
+      args = joinWords(tokens);
       if (args.size() > 1) {
         std::cout << endl << "-my-shell: cd: too many arguments" << endl;
       }
@@ -112,6 +120,7 @@ private:
       cd(str::Trim(message));
       break;
     case Command::None:
+
       args = joinWords(tokens);
       runProgram(commandStr, str::JoinString(args, " "));
       break;
