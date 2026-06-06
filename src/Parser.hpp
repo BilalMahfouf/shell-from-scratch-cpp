@@ -71,7 +71,7 @@ private:
 
     for (size_t i = 0; i < str.size(); ++i) {
       // echo multiple\ \ \ \ spaces
-      if (isBackSlash && !isSingleQuote && !isDoubleQuote) {
+      if (isBackSlash && !isSingleQuote) {
         if (isSpecialShellChar(str.at(i))) {
           tokenValue += str.at(i);
         } else {
