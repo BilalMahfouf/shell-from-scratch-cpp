@@ -103,11 +103,13 @@ private:
         tokenValue += str[i];
       }
 
-      if (i == (str.size() - 1)) {
-        token = createToken(tokenValue);
-        tokens.push_back(token);
-      }
+      // if (i == (str.size() - 1) || i == str.size()) {
+      //   token = createToken(tokenValue);
+      //   tokens.push_back(token);
+      // }
     }
+    token = createToken(tokenValue);
+    tokens.push_back(token);
 
     return tokens;
   }
