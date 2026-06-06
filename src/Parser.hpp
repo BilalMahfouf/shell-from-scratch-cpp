@@ -90,7 +90,7 @@ private:
         tokenValue.clear();
         continue;
       }
-      if (str.at(i) == '\\' && !isSingleQuote && !isDoubleQuote) {
+      if (str.at(i) == '\\' && !isSingleQuote) {
         isBackSlash = !isBackSlash;
         continue;
       }
