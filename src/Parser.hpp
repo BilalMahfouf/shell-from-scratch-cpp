@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 enum class TokenType {
@@ -52,6 +53,12 @@ private:
     return "UNKNOWN";
   }
 
+  static bool isSpecialShellChar(char c) {
+    static const std::unordered_set<char> specials = {
+        '$', '\\', '\n', '|', '>', '<', '&', ';', '"', '\''};
+
+    return specials.find(c) != specials.end();
+  }
   static std::vector<Token> getTokens(const std::string &str) {
     std::string tokenValue = "";
     std::vector<Token> tokens = {};
@@ -60,8 +67,20 @@ private:
 
     bool isSingleQuote = false;
     bool isDoubleQuote = false;
+    bool isBackSlash = false;
 
     for (size_t i = 0; i < str.size(); ++i) {
+      // echo multiple\ \ \ \ spaces
+      if (isBackSlash && !isSingleQuote && !isDoubleQuote) {
+        if (isSpecialShellChar(str.at(i))) {
+          tokenValue += str.at(i);
+        } else {
+          tokenValue += str.at(i);
+        }
+        isBackSlash = false;
+        continue;
+      }
+
       if (str[i] == ' ' && !isSingleQuote && !isDoubleQuote) {
         if (str::isNullOrWhiteSpace(tokenValue))
           continue;
@@ -69,6 +88,10 @@ private:
         token = createToken(tokenValue);
         tokens.push_back(token);
         tokenValue.clear();
+        continue;
+      }
+      if (str.at(i) == '\\' && !isSingleQuote && !isDoubleQuote) {
+        isBackSlash = !isBackSlash;
         continue;
       }
       if (str[i] == '\'' && !isDoubleQuote) {
