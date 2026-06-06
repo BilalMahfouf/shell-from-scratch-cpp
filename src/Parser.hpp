@@ -1,7 +1,9 @@
 #pragma once
+#include "str.h"
 #include <iostream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 enum class TokenType {
@@ -51,6 +53,12 @@ private:
     return "UNKNOWN";
   }
 
+  static bool isSpecialShellChar(char c) {
+    static const std::unordered_set<char> specials = {
+        '$', '\\', '\n', '|', '>', '<', '&', ';', '"', '\''};
+
+    return specials.find(c) != specials.end();
+  }
   static std::vector<Token> getTokens(const std::string &str) {
     std::string tokenValue = "";
     std::vector<Token> tokens = {};
@@ -59,31 +67,49 @@ private:
 
     bool isSingleQuote = false;
     bool isDoubleQuote = false;
+    bool isBackSlash = false;
 
     for (size_t i = 0; i < str.size(); ++i) {
-      if (i == (str.size() - 1)) {
-        std::cout << "hola";
-        token = createToken(tokenValue);
-        tokens.push_back(token);
+      // echo multiple\ \ \ \ spaces
+      if (isBackSlash && !isSingleQuote) {
+        if (isSpecialShellChar(str.at(i))) {
+          tokenValue += str.at(i);
+        } else {
+          tokenValue += str.at(i);
+        }
+        isBackSlash = false;
+        continue;
       }
 
       if (str[i] == ' ' && !isSingleQuote && !isDoubleQuote) {
+        if (str::isNullOrWhiteSpace(tokenValue))
+          continue;
+
         token = createToken(tokenValue);
         tokens.push_back(token);
         tokenValue.clear();
         continue;
       }
+      if (str.at(i) == '\\' && !isSingleQuote) {
+        isBackSlash = !isBackSlash;
+        continue;
+      }
       if (str[i] == '\'' && !isDoubleQuote) {
         isSingleQuote = !isSingleQuote;
-        continue;
-      }
-      if (str[i] == '\"' && !isSingleQuote) {
+      } else if (str[i] == '\"' && !isSingleQuote) {
         isDoubleQuote = !isDoubleQuote;
-        continue;
+      } else {
+
+        tokenValue += str[i];
       }
 
-      tokenValue += str[i];
+      // if (i == (str.size() - 1) || i == str.size()) {
+      //   token = createToken(tokenValue);
+      //   tokens.push_back(token);
+      // }
     }
+    token = createToken(tokenValue);
+    tokens.push_back(token);
 
     return tokens;
   }

@@ -1,12 +1,16 @@
+#include "Executor.hpp"
 #include "Parser.hpp"
 #include "str.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
+#include <execution>
 #include <filesystem>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
 
@@ -184,9 +188,11 @@ void cd(const std::string &absolutePath) {
   }
 }
 void execute() {
+  Parser parser;
   while (true) {
     const std::string input = str::Trim(readUserCommand());
     const Command command = getEnumCommand(split(input, ' ').front());
+    std::vector<Token> tokens = parser.ParseInput(input);
     std::string message = "";
     switch (command) {
     case Command::Exit:
@@ -222,9 +228,21 @@ int main() {
   std::cerr << std::unitbuf;
 
   // execute();
-  const std::string input = readUserCommand();
   Parser parser;
-  std::vector<Token> tokens = parser.ParseInput(input);
-  std::cout << tokens.size() << std::endl;
-  parser.printTokens(tokens);
+  Executor executer;
+  bool exit = false;
+
+  while (true) {
+    const std::string input = readUserCommand();
+    std::vector<Token> tokens = parser.ParseInput(input);
+    // parser.printTokens(tokens);
+
+    executer.run(tokens, exit);
+    if (exit) {
+      std::cout << endl << "---------------------------------" << endl;
+      std::cout << "good by";
+      std::cout << endl << "---------------------------------" << endl;
+      break;
+    }
+  }
 }
