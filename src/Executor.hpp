@@ -130,8 +130,10 @@ private:
       break;
     }
   }
-  std::vector<char *> getArgsForExecvp(std::vector<string> &tokens) {
-    std::vector<char *> argv;
+  std::vector<char *> getArgsForExecvp(std::string command,
+                                       std::vector<string> &tokens) {
+    std::vector<char *> argv{};
+    argv.push_back(command.data());
 
     for (auto &token : tokens) {
       argv.push_back(token.data());
@@ -150,7 +152,8 @@ private:
 
     pid_t pid = fork();
     if (pid == 0) {
-      auto argv = getArgsForExecvp(args);
+      auto argv = getArgsForExecvp(command, args);
+
       execvp(command.c_str(), argv.data());
       exit(EXIT_FAILURE);
 
