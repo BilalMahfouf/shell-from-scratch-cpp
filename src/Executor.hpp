@@ -2,7 +2,11 @@
 #include "Parser.hpp"
 #include "helpers/file_helpers.hpp"
 #include "str.h"
+#include <cstdlib>
 #include <iostream>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <vector>
 
 class Executor {
@@ -122,11 +126,21 @@ private:
     case Command::None:
 
       args = joinWords(tokens);
-      runProgram(commandStr, str::JoinString(args, " "));
+      runProgram(commandStr, args);
       break;
     }
   }
-  void runProgram(const std::string &command, const std::string &args) {
+  std::vector<char *> getArgsForExecvp(std::vector<string> &tokens) {
+    std::vector<char *> argv;
+
+    for (auto &token : tokens) {
+      argv.push_back(token.data());
+    }
+
+    argv.push_back(nullptr);
+    return argv;
+  }
+  void runProgram(const std::string &command, std::vector<string> args) {
     const std::string commandPath =
         file_helpers::getExecutableCommandPath(command);
     if (commandPath == "") {
@@ -134,9 +148,18 @@ private:
       return;
     }
 
-    std::string newArgs = command + "\"" + " " + args + "\"";
-    std::cout << endl << "args: " << newArgs << endl;
-    std::system(newArgs.c_str());
+    pid_t pid = fork();
+    if (pid == 0) {
+      auto argv = getArgsForExecvp(args);
+      execvp(command.c_str(), argv.data());
+      exit(EXIT_FAILURE);
+
+    } else if (pid > 0) {
+      waitpid(pid, nullptr, 0);
+    } else {
+      // error
+      std::cerr << "error in creating a new process" << endl;
+    }
   }
   void cd(const std::string &absolutePath) {
     if (str::isNullOrWhiteSpace(absolutePath))

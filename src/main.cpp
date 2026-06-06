@@ -9,6 +9,8 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
 
@@ -225,22 +227,32 @@ int main() {
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
 
-  // execute();
-  Parser parser;
-  Executor executer;
-  bool exit = false;
-
-  while (true) {
-    const std::string input = readUserCommand();
-    std::vector<Token> tokens = parser.ParseInput(input);
-    // parser.printTokens(tokens);
-
-    executer.run(tokens, exit);
-    if (exit) {
-      std::cout << endl << "---------------------------------" << endl;
-      std::cout << "good by";
-      std::cout << endl << "---------------------------------" << endl;
-      break;
-    }
+  // // execute();
+  // Parser parser;
+  // Executor executer;
+  // bool exit = false;
+  //
+  // while (true) {
+  //   const std::string input = readUserCommand();
+  //   std::vector<Token> tokens = parser.ParseInput(input);
+  //   // parser.printTokens(tokens);
+  //
+  //   executer.run(tokens, exit);
+  //   if (exit) {
+  //     std::cout << endl << "---------------------------------" << endl;
+  //     std::cout << "good by";
+  //     std::cout << endl << "---------------------------------" << endl;
+  //     break;
+  //   }
+  // }
+  //
+  pid_t pid = fork();
+  if (pid == 0) {
+    std::cout << "we are in child  " << endl;
+  } else if (pid > 0) {
+    // waitpid(pid, nullptr, 0);
+    std::cout << "we are in parent process with child id: " << pid << endl;
+  } else {
+    std::cout << "fuck some thing happend, error" << endl;
   }
 }
