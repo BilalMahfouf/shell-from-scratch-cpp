@@ -120,9 +120,10 @@ private:
   }
   inline static const std::unordered_map<std::string, TokenType> tokenTypes{
       {"|", TokenType::PIPE},         {"<", TokenType::REDIRECT_IN},
-      {">", TokenType::REDIRECT_OUT}, {">>", TokenType::APPEND},
-      {"&&", TokenType::AND},         {"||", TokenType::OR},
-      {";", TokenType::SEMICOLON},    {"\n", TokenType::NEWLINE}};
+      {">", TokenType::REDIRECT_OUT}, {"1>", TokenType::REDIRECT_OUT},
+      {">>", TokenType::APPEND},      {"&&", TokenType::AND},
+      {"||", TokenType::OR},          {";", TokenType::SEMICOLON},
+      {"\n", TokenType::NEWLINE}};
 
   static TokenType getTokenType(const std::string &token) {
     auto it = tokenTypes.find(token);
@@ -148,3 +149,9 @@ public:
     }
   }
 };
+
+struct Command {
+  std::string program;
+  std::vector<std::string> args;
+};
+//  tokens -> command -> PipelineStage -> ParsedCommand
