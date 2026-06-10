@@ -27,7 +27,13 @@ struct Token {
   TokenType type;
   std::string value;
 };
-enum class RedirectionType { In, Out, Append, HereDoc };
+enum class RedirectionType {
+  Stdout,    // >
+  Stderr,    // 2>
+  AppendOut, // >>
+  AppendErr, // 2>>
+  Stdin      // <
+};
 struct Redirection {
   RedirectionType type;
   std::string file;
@@ -231,6 +237,25 @@ private:
     return TokenType::WORD;
   }
 
+  /**
+   * @brief Joins consecutive WORD tokens into a list of arguments.
+   *
+   * This function iterates through a vector of tokens starting from index 0
+   * and collects all consecutive WORD tokens into a string vector.
+   *
+   * It stops parsing when it encounters the first non-WORD token
+   * (such as PIPE, REDIRECT, AND, etc.).
+   *
+   * @return A tuple containing:
+   *         - std::vector<std::string>: collected arguments (WORD tokens)
+   *         - size_t: index of the first non-WORD token (where parsing stopped)
+   *
+   * Example:
+   * Input tokens:  echo hello world | ls
+   * Output:
+   *   args = ["echo", "hello", "world"]
+   *   index = position of PIPE token
+   */
   std::tuple<std::vector<std::string>, size_t>
   joinWords(const std::vector<Token> tokens) {
     std::vector<std::string> args{};
@@ -247,20 +272,33 @@ private:
 
     return {args, index};
   }
-  std::optional<RedirectionType> getRedirectionType(TokenType type) {
-    switch (type) {
-    case TokenType::REDIRECT_IN:
-      return RedirectionType::In;
+  /**
+   * @brief Tries to convert a token into a RedirectionType.
+   *
+   * If the token is not a redirection operator, returns std::nullopt.
+   *
+   * @param token Raw token string (e.g. ">", "2>", ">>", etc.)
+   * @return std::optional<RedirectionType> containing the type if valid,
+   *         or std::nullopt if it's not a redirection.
+   */
+  static std::optional<RedirectionType>
+  getRedirectionType(const std::string &token) {
+    if (token == ">")
+      return RedirectionType::Stdout;
 
-    case TokenType::REDIRECT_OUT:
-      return RedirectionType::Out;
+    if (token == "2>")
+      return RedirectionType::Stderr;
 
-    case TokenType::APPEND:
-      return RedirectionType::Append;
+    if (token == ">>")
+      return RedirectionType::AppendOut;
 
-    default:
-      return std::nullopt;
-    }
+    if (token == "2>>")
+      return RedirectionType::AppendErr;
+
+    if (token == "<")
+      return RedirectionType::Stdin;
+
+    return std::nullopt;
   }
 
 public:
@@ -296,14 +334,14 @@ public:
       parsedCommand.commands = commands;
       return parsedCommand;
     }
-    auto redirectionType = getRedirectionType(tokens.at(index).type);
+    auto redirectionType = getRedirectionType(tokens.at(index).value);
     if (redirectionType.has_value()) {
       Redirection redirect{.type = redirectionType.value()};
       if (index + 1 > tokens.size() - 1) {
         return parsedCommand;
       }
       // here means the command still need redirections or extra args
-      // commands.clear();
+      commands.clear();
 
       auto token = tokens.at(index + 1);
       redirect.file = token.value;
@@ -328,46 +366,53 @@ public:
 
     return parsedCommand;
   }
-
   std::string RedirectionTypeToString(RedirectionType type) {
     switch (type) {
-    case RedirectionType::In:
-      return "<";
-    case RedirectionType::Out:
-      return ">";
-    case RedirectionType::Append:
-      return ">>";
-    case RedirectionType::HereDoc:
-      return "<<";
+    case RedirectionType::Stdout:
+      return "stdout (>)";
+    case RedirectionType::Stderr:
+      return "stderr (2>)";
+    case RedirectionType::AppendOut:
+      return "append stdout (>>)";
+    case RedirectionType::AppendErr:
+      return "append stderr (2>>)";
+    case RedirectionType::Stdin:
+      return "stdin (<)";
     default:
       return "unknown";
     }
   }
   void printParsedCommand(const ParsedCommand &pc) {
-    std::cout << "ParsedCommand:\n";
+    std::cout << "================ ParsedCommand ================\n";
 
     for (size_t i = 0; i < pc.commands.size(); ++i) {
       const Command &cmd = pc.commands[i];
 
-      std::cout << "  Command " << i << ":\n";
-      std::cout << "    program: " << cmd.program << "\n";
+      std::cout << "\n[Command " << i << "]\n";
 
-      std::cout << "    args: ";
-      for (const auto &arg : cmd.args)
-        std::cout << arg << " ";
+      std::cout << "Program: " << cmd.program << "\n";
+
+      std::cout << "Args: ";
+      if (cmd.args.empty()) {
+        std::cout << "(none)";
+      } else {
+        for (const auto &arg : cmd.args)
+          std::cout << arg << " ";
+      }
       std::cout << "\n";
 
-      std::cout << "    redirections:\n";
-
+      std::cout << "Redirections:\n";
       if (cmd.redirections.empty()) {
-        std::cout << "      none\n";
+        std::cout << "  none\n";
       } else {
         for (const auto &r : cmd.redirections) {
-          std::cout << "      " << RedirectionTypeToString(r.type) << " -> "
+          std::cout << "  " << RedirectionTypeToString(r.type) << " -> "
                     << r.file << "\n";
         }
       }
     }
+
+    std::cout << "==============================================\n";
   }
 };
 
