@@ -196,4 +196,5 @@ public:
       executeCommand(command, newTokens, exit);
     }
   }
+  void runV1(const ParsedCommand &parsedcommand, bool &exit) {}
 };

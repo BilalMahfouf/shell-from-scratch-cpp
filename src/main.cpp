@@ -27,22 +27,28 @@ int main() {
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
 
-  // execute();
+  // // execute();
   Parser parser;
   Executor executer;
   bool exit = false;
-
-  while (true) {
-    const std::string input = readUserCommand();
-    std::vector<Token> tokens = parser.ParseInput(input);
-    // parser.printTokens(tokens);
-
-    executer.run(tokens, exit);
-    if (exit) {
-      std::cout << endl << "---------------------------------" << endl;
-      std::cout << "good by";
-      std::cout << endl << "---------------------------------" << endl;
-      break;
-    }
-  }
+  //
+  // while (true) {
+  //   const std::string input = readUserCommand();
+  //   std::vector<Token> tokens = parser.ParseInput(input);
+  //   // parser.printTokens(tokens);
+  //
+  //   executer.run(tokens, exit);
+  //   if (exit) {
+  //     std::cout << endl << "---------------------------------" << endl;
+  //     std::cout << "good by";
+  //     std::cout << endl << "---------------------------------" << endl;
+  //     break;
+  //   }
+  // }
+  //
+  const std::string input = readUserCommand();
+  auto tokens = parser.lex(input);
+  auto parsedCommand = parser.parseInput(tokens);
+  // parser.printParsedCommand(parsedCommand);
+  parser.printTokens(tokens);
 }
