@@ -33,7 +33,7 @@ struct ExecResult {
 
   static ExecResult Exit() { return ExecResult{"", "", Status::Exit}; }
 
-  static ExecResult Empty() { return ExecResult{"$", "", Status::Success}; }
+  static ExecResult Empty() { return ExecResult{"$ ", "", Status::Success}; }
 };
 
 class Executor {
