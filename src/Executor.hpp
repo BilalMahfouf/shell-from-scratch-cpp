@@ -131,6 +131,8 @@ private:
     const std::string commandPath =
         file_helpers::getExecutableCommandPath(command);
 
+    // std::cout << "\n " << command << "args:" << args.front() << endl;
+
     if (commandPath.empty()) {
       return "Invalid command: " + command;
     }
@@ -281,7 +283,7 @@ private:
 
   void printOutput(std::optional<string> output) {
     if (output.has_value()) {
-      std::cout << output.value();
+      std::cout << output.value() << endl;
       return;
     }
     return;
