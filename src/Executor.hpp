@@ -33,7 +33,7 @@ struct ExecResult {
 
   static ExecResult Exit() { return ExecResult{"", "", Status::Exit}; }
 
-  static ExecResult Empty() { return ExecResult{"$ ", "", Status::Success}; }
+  static ExecResult Empty() { return ExecResult{"", "", Status::Success}; }
 };
 
 class Executor {
@@ -283,7 +283,7 @@ private:
 
   void printOutput(std::optional<string> output) {
     if (output.has_value()) {
-      std::cout << output.value() << endl;
+      std::cout << output.value();
       return;
     }
     return;
