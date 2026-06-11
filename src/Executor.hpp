@@ -101,12 +101,10 @@ private:
         if (path.empty()) {
           output = printInvalidCommand(arg);
         } else {
-          cout << arg << " is " << path << endl;
-          output = std::format("{} is {}\n", arg, path);
+          output = std::format("{} is {}", arg, path);
         }
       } else {
-        std::cout << arg << " is a shell builtin" << endl;
-        output = std::format("{} is a shell builtin \n", arg);
+        output = std::format("{} is a shell builtin", arg);
       }
       output += '\n';
     }
