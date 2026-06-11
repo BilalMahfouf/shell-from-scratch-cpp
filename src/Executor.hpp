@@ -127,6 +127,9 @@ private:
   ExecResult runProgram(const std::string &command,
                         std::vector<std::string> args) {
 
+    std::cout << endl
+              << "command: " << command << " args: " << args.at(0) << endl;
+
     const std::string commandPath =
         file_helpers::getExecutableCommandPath(command);
 
@@ -287,7 +290,14 @@ private:
     return ExecResult::Empty();
   }
 
-  void createFileIfDontExist(const std::string file) {
+  // to do fix the bug if dir don't exist it don't create it
+
+  void createFileIfDontExist(const fs::path file) {
+
+    fs::path dir = file.parent_path();
+    if (!fs::exists(dir) && !dir.empty()) {
+      fs::create_directories(dir);
+    }
     if (!fs::exists(file)) {
       std::ofstream(file).close();
       return;
