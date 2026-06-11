@@ -322,7 +322,7 @@ private:
 
   void printOutput(std::optional<string> output) {
     if (output.has_value()) {
-      std::cout << output.value();
+      std::cout << output.value() << endl;
       return;
     }
     return;
