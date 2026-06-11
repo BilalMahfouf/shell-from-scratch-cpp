@@ -10,6 +10,8 @@
 #include <unordered_set>
 #include <vector>
 
+namespace parser {
+
 enum class TokenType {
   WORD,         // echo, ls, hello, /usr/bin
   PIPE,         // |
@@ -248,7 +250,8 @@ private:
    *
    * @return A tuple containing:
    *         - std::vector<std::string>: collected arguments (WORD tokens)
-   *         - size_t: index of the first non-WORD token (where parsing stopped)
+   *         - size_t: index of the first non-WORD token (where parsing
+   * stopped)
    *
    * Example:
    * Input tokens:  echo hello world | ls
@@ -420,3 +423,4 @@ public:
 // ParsedCommand {[Command]}
 
 //  tokens -> command -> PipelineStage -> ParsedCommand
+}; // namespace parser

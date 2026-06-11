@@ -29,24 +29,24 @@ int main() {
   std::cerr << std::unitbuf;
 
   // // // execute();
-  // Parser parser;
-  // Executor executer;
-  // bool exit = false;
-  // //
-  // // while (true) {
-  // //   const std::string input = readUserCommand();
-  // //   std::vector<Token> tokens = parser.ParseInput(input);
-  // //   // parser.printTokens(tokens);
-  // //
-  // //   executer.run(tokens, exit);
-  // //   if (exit) {
-  // //     std::cout << endl << "---------------------------------" << endl;
-  // //     std::cout << "good by";
-  // //     std::cout << endl << "---------------------------------" << endl;
-  // //     break;
-  // //   }
-  // // }
-  // //
+  parser::Parser parser;
+  Executor executer;
+  bool exit = false;
+
+  while (true) {
+    const std::string input = readUserCommand();
+    std::vector<parser::Token> tokens = parser.lex(input);
+    parser::ParsedCommand parsedCommand = parser.parseInput(tokens);
+
+    executer.runV2(parsedCommand, exit);
+    if (exit) {
+      std::cout << endl << "---------------------------------" << endl;
+      std::cout << "good by";
+      std::cout << endl << "---------------------------------" << endl;
+      break;
+    }
+  }
+  //
   // const std::string input = readUserCommand();
   // auto tokens = parser.lex(input);
   // auto parsedCommand = parser.parseInput(tokens);
@@ -54,15 +54,20 @@ int main() {
   // // parser.printTokens(tokens);
   // //
   // //
-  TestRunner t;
-  Parser p;
-
-  std::cout << "Running Parser Tests...\n\n";
-
-  parser_tests::test_basic_lexing(t, p);
-  parser_tests::test_redirection_detection(t, p);
-  parser_tests::test_parser_basic_command(t, p);
-  parser_tests::test_parser_redirection(t, p);
-
-  t.summary();
+  // TestRunner t;
+  // parser::Parser p;
+  //
+  // std::cout << "Running Parser Tests...\n\n";
+  //
+  // parser_tests::test_basic_lexing(t, p);
+  // parser_tests::test_redirection_detection(t, p);
+  // parser_tests::test_parser_basic_command(t, p);
+  // parser_tests::test_parser_redirection(t, p);
+  //
+  // parser_tests::test_multiple_output_redirections(t, p);
+  // parser_tests::test_append_and_overwrite(t, p);
+  // parser_tests::test_stdout_stderr_mix(t, p);
+  // parser_tests::test_redirect_chain_only(t, p);
+  //
+  // t.summary();
 }
