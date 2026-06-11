@@ -20,22 +20,20 @@ struct ExecResult {
   std::string output;
   std::string error;
   Status status;
+  int exitCode = 0; // added, does not break old code
 
-  // -------- factories --------
-
-  static ExecResult Success(std::string out) {
-    return ExecResult{std::move(out), "", Status::Success};
+  static ExecResult Success(std::string out, int code = 0) {
+    return {std::move(out), "", Status::Success, code};
   }
 
-  static ExecResult Error(std::string err) {
-    return ExecResult{"", std::move(err), Status::Error};
+  static ExecResult Error(std::string err, int code = 1) {
+    return {"", std::move(err), Status::Error, code};
   }
 
-  static ExecResult Exit() { return ExecResult{"", "", Status::Exit}; }
+  static ExecResult Exit(int code = -1) { return {"", "", Status::Exit, code}; }
 
-  static ExecResult Empty() { return ExecResult{"", "", Status::Success}; }
+  static ExecResult Empty() { return {"", "", Status::Success, 0}; }
 };
-
 class Executor {
 private:
   enum class Command { Exit = 0, Echo, Type, Pwd, Cd, None };
@@ -126,21 +124,22 @@ private:
     argv.push_back(nullptr);
     return argv;
   }
-  std::string runProgram(const std::string &command,
-                         std::vector<std::string> args) {
+  ExecResult runProgram(const std::string &command,
+                        std::vector<std::string> args) {
+
     const std::string commandPath =
         file_helpers::getExecutableCommandPath(command);
 
-    // std::cout << "\n " << command << "args:" << args.front() << endl;
-
     if (commandPath.empty()) {
-      return "Invalid command: " + command;
+      return ExecResult::Error("Invalid command: " + command);
     }
 
-    int pipefd[2];
+    int stdoutPipe[2];
+    int stderrPipe[2];
 
-    if (pipe(pipefd) == -1) {
-      return "pipe() failed";
+    if (pipe(stdoutPipe) == -1 || pipe(stderrPipe) == -1) {
+
+      return ExecResult::Error("pipe() failed");
     }
 
     pid_t pid = fork();
@@ -148,36 +147,69 @@ private:
     if (pid == 0) {
       // CHILD
 
-      dup2(pipefd[1], STDOUT_FILENO); // redirect stdout → pipe
-      dup2(pipefd[1], STDERR_FILENO); // optional: capture errors too
+      dup2(stdoutPipe[1], STDOUT_FILENO);
+      dup2(stderrPipe[1], STDERR_FILENO);
 
-      close(pipefd[0]);
-      close(pipefd[1]);
+      close(stdoutPipe[0]);
+      close(stdoutPipe[1]);
+
+      close(stderrPipe[0]);
+      close(stderrPipe[1]);
 
       auto argv = getArgsForExecvp(command, args);
 
       execvp(commandPath.c_str(), argv.data());
 
-      _exit(1); // if exec fails
+      // exec failed
+      _exit(127);
+
     } else if (pid > 0) {
+
       // PARENT
 
-      close(pipefd[1]);
+      close(stdoutPipe[1]);
+      close(stderrPipe[1]);
 
       std::string output;
+      std::string error;
+
       char buffer[4096];
       ssize_t n;
 
-      while ((n = read(pipefd[0], buffer, sizeof(buffer))) > 0) {
+      // read stdout
+      while ((n = read(stdoutPipe[0], buffer, sizeof(buffer))) > 0) {
+
         output.append(buffer, n);
       }
 
-      close(pipefd[0]);
-      waitpid(pid, nullptr, 0);
+      // read stderr
+      while ((n = read(stderrPipe[0], buffer, sizeof(buffer))) > 0) {
 
-      return output;
+        error.append(buffer, n);
+      }
+
+      close(stdoutPipe[0]);
+      close(stderrPipe[0]);
+
+      int status;
+      waitpid(pid, &status, 0);
+
+      if (WIFEXITED(status)) {
+
+        int code = WEXITSTATUS(status);
+
+        if (code == 0) {
+          return ExecResult::Success(std::move(output));
+        }
+
+        return ExecResult::Error(std::move(error));
+      }
+
+      return ExecResult::Exit();
+
     } else {
-      return "fork() failed";
+
+      return ExecResult::Error("fork() failed");
     }
   }
   void cd(const std::string &absolutePath) {
@@ -250,8 +282,7 @@ private:
     }
     case Command::None:
       std::vector<string> args(command.args.begin() + 1, command.args.end());
-      message = runProgram(command.program, args);
-      return ExecResult::Success(message);
+      return runProgram(command.program, args);
     }
     return ExecResult::Empty();
   }
