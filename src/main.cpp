@@ -38,7 +38,7 @@ int main() {
     std::vector<parser::Token> tokens = parser.lex(input);
     parser::ParsedCommand parsedCommand = parser.parseInput(tokens);
 
-    executer.runV2(parsedCommand, exit);
+    executer.run(parsedCommand, exit);
     if (exit) {
       std::cout << endl << "---------------------------------" << endl;
       std::cout << "good by";

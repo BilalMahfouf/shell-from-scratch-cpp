@@ -14,6 +14,28 @@
 #include <unistd.h>
 #include <vector>
 
+struct ExecResult {
+  enum class Status { Success, Error, Exit };
+
+  std::string output;
+  std::string error;
+  Status status;
+
+  // -------- factories --------
+
+  static ExecResult Success(std::string out) {
+    return ExecResult{std::move(out), "", Status::Success};
+  }
+
+  static ExecResult Error(std::string err) {
+    return ExecResult{"", std::move(err), Status::Error};
+  }
+
+  static ExecResult Exit() { return ExecResult{"", "", Status::Exit}; }
+
+  static ExecResult Empty() { return ExecResult{"\n", "", Status::Success}; }
+};
+
 class Executor {
 private:
   enum class Command { Exit = 0, Echo, Type, Pwd, Cd, None };
@@ -91,56 +113,6 @@ private:
       output += '\n';
     }
     return output;
-  }
-  void executeCommand(std::string commandStr,
-                      const std::vector<parser::Token> &tokens, bool &exit) {
-    std::vector<std::string> args;
-
-    std::string message = "";
-    Command command = getEnumCommand(commandStr);
-    exit = false;
-
-    switch (command) {
-    case Command::Exit:
-      exit = true;
-      return;
-    case Command::Echo:
-      if (tokens.empty())
-        return;
-      args = joinWords(tokens);
-      echo(args);
-      break;
-    case Command::Type:
-      if (tokens.empty())
-        return;
-      args = joinWords(tokens);
-      type(args);
-      break;
-
-    case Command::Pwd: {
-      const std::string currentPath =
-          file_helpers::getCurrentWorkingDirectory();
-      if (!str::isNullOrWhiteSpace(currentPath)) {
-        std::cout << currentPath << endl;
-      }
-      break;
-    }
-    case Command::Cd:
-      if (tokens.empty())
-        return;
-      args = joinWords(tokens);
-      if (args.size() > 1) {
-        std::cout << endl << "-my-shell: cd: too many arguments" << endl;
-      }
-      message = args.front();
-      cd(str::Trim(message));
-      break;
-    case Command::None:
-
-      args = joinWords(tokens);
-      runProgram(commandStr, args);
-      break;
-    }
   }
   std::vector<char *> getArgsForExecvp(std::string command,
                                        std::vector<string> &tokens) {
@@ -230,55 +202,56 @@ private:
     }
   }
 
-  std::optional<string> executeCommandV2(const parser::Command &command,
-                                         bool &exit) {
-
+  ExecResult executeCommandV2(const parser::Command &command) {
     std::string message = "";
     Command commandEnum = getEnumCommand(str::Trim(command.program));
-    exit = false;
 
     switch (commandEnum) {
     case Command::Exit:
-      exit = true;
-      return nullopt;
+      return ExecResult::Exit();
     case Command::Echo: {
-      if (command.args.empty()) {
-        return nullopt;
+      if (command.args.size() < 2) {
+        return ExecResult::Empty();
       }
       std::vector<string> args(command.args.begin() + 1, command.args.end());
-      return echo(args);
+      message = echo(args);
+      return ExecResult::Success(message);
     }
     case Command::Type:
       if (command.args.empty())
-        return nullopt;
-      return type(command.args);
+        return ExecResult::Empty();
+      message = type(command.args);
+      return ExecResult::Success(message);
 
     case Command::Pwd: {
       const std::string currentPath =
           file_helpers::getCurrentWorkingDirectory();
       if (!str::isNullOrWhiteSpace(currentPath)) {
-        return currentPath + "\n";
+        ExecResult::Success(currentPath + "\n");
       }
-      return nullopt;
+      return ExecResult::Empty();
     }
     case Command::Cd: {
 
       std::vector<string> args(command.args.begin() + 1, command.args.end());
       if (args.empty())
-        return nullopt;
+        // to do make go to home
+        return ExecResult::Empty();
       if (args.size() > 1) {
         // std::cout << endl << "-my-shell: cd: too many arguments" << endl;
-        return "\n-my-shell: cd: too many arguments\n";
+        message = "\n-my-shell: cd: too many arguments\n";
+        return ExecResult::Success(message);
       }
       message = args.front();
       cd(str::Trim(message));
-      return nullopt;
+      return ExecResult::Empty();
     }
     case Command::None:
       std::vector<string> args(command.args.begin() + 1, command.args.end());
-      return runProgram(command.program, args);
+      message = runProgram(command.program, args);
+      return ExecResult::Success(message);
     }
-    return nullopt;
+    return ExecResult::Empty();
   }
 
   void createFileIfDontExist(const std::string file) {
@@ -315,27 +288,29 @@ private:
   }
 
 public:
-  void run(const std::vector<parser::Token> &tokens, bool &exit) {
-    if (tokens.at(0).type == parser::TokenType::WORD) {
-      std::string command = tokens.at(0).value;
-      std::vector<parser::Token> newTokens = tokens;
-      newTokens.erase(newTokens.begin());
-      executeCommand(command, newTokens, exit);
-    }
-  }
-  void runV2(const parser::ParsedCommand &parsedcommand, bool &exit) {
-    std::optional<string> output = "";
+  void run(const parser::ParsedCommand &parsedcommand, bool &exit) {
     for (const auto &command : parsedcommand.commands) {
       if (command.redirections.empty()) {
-        output = executeCommandV2(command, exit);
-        printOutput(output);
+        auto output = executeCommandV2(command);
+        if (output.status == ExecResult::Status::Exit) {
+          exit = true;
+          return;
+        }
+        printOutput(output.status == ExecResult::Status::Error ? output.error
+                                                               : output.output);
         continue;
       }
       auto redirection = command.redirections.front();
-      auto output = executeCommandV2(command, exit);
-      if (output.has_value()) {
-        redirect(redirection, output.value());
+      auto output = executeCommandV2(command);
+
+      if (output.status == ExecResult::Status::Exit) {
+        exit = true;
+        return;
       }
+      if (output.status == ExecResult::Status::Error) {
+        continue;
+      }
+      redirect(redirection, output.output);
     }
   }
   // ["echo","echo bilal is me",[StdOut,"file.txt"],...,..]
