@@ -290,14 +290,20 @@ private:
 
   // to do fix the bug if dir don't exist it don't create it
 
-  void createFileIfDontExist(const fs::path file) {
+  void createFileIfDontExist(const std::string file) {
+    std::string temp = file;
+    if (file.at(0) == '/') {
+      temp = "home/bilal" + file;
+    }
+    fs::path filePath = temp;
+    fs::path dir = filePath.parent_path();
 
-    fs::path dir = file.parent_path();
     if (!fs::exists(dir) && !dir.empty()) {
+
       fs::create_directories(dir);
     }
-    if (!fs::exists(file)) {
-      std::ofstream(file).close();
+    if (!fs::exists(temp)) {
+      std::ofstream(temp).close();
       return;
     }
     return;
