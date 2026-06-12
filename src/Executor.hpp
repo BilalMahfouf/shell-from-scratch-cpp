@@ -313,14 +313,19 @@ private:
   void redirectAppend(const std::string file, const std::string content) {
     createFileIfDontExist(file);
     {
+      std::string temp = content;
       std::ofstream out(file, std::ios::app);
-      if (!str::isNullOrWhiteSpace(content)) {
-        if (file_helpers::isEmpty(file)) {
 
-          out << content;
-          return;
+      bool firstWrite = file_helpers::isEmpty(file);
+
+      if (!str::isNullOrWhiteSpace(content)) {
+        if (!firstWrite) {
+          out << '\n';
         }
-        out << endl << content;
+        if (content.back() == '\n') {
+          temp = content.substr(0, content.size() - 1);
+        }
+        out << temp;
       }
     }
     return;
