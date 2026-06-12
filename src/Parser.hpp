@@ -289,6 +289,9 @@ private:
     if (token == ">")
       return RedirectionType::Stdout;
 
+    if (token == "1>")
+      return RedirectionType::Stdout;
+
     if (token == "2>")
       return RedirectionType::Stderr;
 
