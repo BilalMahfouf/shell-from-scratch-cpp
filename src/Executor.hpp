@@ -301,7 +301,7 @@ private:
     return;
   }
 
-  void redirectStdOut(const std::string file, const std::string content) {
+  void redirectStd(const std::string file, const std::string content) {
     createFileIfDontExist(file);
     std::ofstream out(file);
     if (!str::isNullOrWhiteSpace(content)) {
@@ -313,7 +313,11 @@ private:
   void redirect(parser::Redirection redirect, const std::string content) {
     switch (redirect.type) {
     case ::parser::RedirectionType::Stdout:
-      redirectStdOut(redirect.file, content);
+      redirectStd(redirect.file, content);
+      break;
+
+    case ::parser::RedirectionType::Stderr:
+      redirectStd(redirect.file, content);
       break;
     }
   }
@@ -358,11 +362,21 @@ public:
       // std::cout << endl
       //           << "output: " << output.output << endl
       //           << "error: " << output.error << endl;
-      if (!str::isNullOrWhiteSpace(output.error)) {
-        printOutput(output.error);
+      if (redirection.type == parser::RedirectionType::Stdout) {
+        if (!str::isNullOrWhiteSpace(output.error)) {
+          printOutput(output.error);
+        }
+        redirect(redirection, output.output);
+        continue;
       }
-      redirect(redirection, output.output);
+      if (redirection.type == parser::RedirectionType::Stderr) {
+        if (!str::isNullOrWhiteSpace(output.output)) {
+          printOutput(output.output);
+        }
+        redirect(redirection, output.error);
+        continue;
+      }
     }
+    // ["echo","echo bilal is me",[StdOut,"file.txt"],...,..]
   }
-  // ["echo","echo bilal is me",[StdOut,"file.txt"],...,..]
 };
