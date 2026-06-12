@@ -95,7 +95,6 @@ private:
     return newMessage;
   }
   std::string printInvalidCommand(const std::string &command) {
-    std::cout << command << ": not found";
     return std::format("{}: not found", command);
   }
   std::string type(const std::vector<std::string> args) {
@@ -139,7 +138,7 @@ private:
         file_helpers::getExecutableCommandPath(command);
 
     if (commandPath.empty()) {
-      return ExecResult::Error("Invalid command: " + command);
+      return ExecResult::Error(command + ": command not found");
     }
 
     int stdoutPipe[2];
@@ -265,7 +264,7 @@ private:
       const std::string currentPath =
           file_helpers::getCurrentWorkingDirectory();
       if (!str::isNullOrWhiteSpace(currentPath)) {
-        ExecResult::Success(currentPath);
+        return ExecResult::Success(currentPath);
       }
       return ExecResult::Empty();
     }
@@ -341,8 +340,12 @@ public:
           exit = true;
           return;
         }
-        printOutput(output.status == ExecResult::Status::Error ? output.error
-                                                               : output.output);
+        if (!str::isNullOrWhiteSpace(output.output)) {
+          printOutput(output.output);
+        }
+        if (!str::isNullOrWhiteSpace(output.error)) {
+          printOutput(output.error);
+        }
         continue;
       }
       auto redirection = command.redirections.front();
