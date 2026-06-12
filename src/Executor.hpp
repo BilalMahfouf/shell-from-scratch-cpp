@@ -88,8 +88,8 @@ private:
     return newMessage;
   }
   std::string printInvalidCommand(const std::string &command) {
-    std::cout << command << ": not found \n";
-    return std::format("{}: not found \n", command);
+    std::cout << command << ": not found";
+    return std::format("{}: not found", command);
   }
   std::string type(const std::vector<std::string> args) {
     std::string output = "";
@@ -262,7 +262,7 @@ private:
       const std::string currentPath =
           file_helpers::getCurrentWorkingDirectory();
       if (!str::isNullOrWhiteSpace(currentPath)) {
-        ExecResult::Success(currentPath + "\n");
+        ExecResult::Success(currentPath);
       }
       return ExecResult::Empty();
     }
@@ -274,7 +274,7 @@ private:
         return ExecResult::Empty();
       if (args.size() > 1) {
         // std::cout << endl << "-my-shell: cd: too many arguments" << endl;
-        message = "\n-my-shell: cd: too many arguments\n";
+        message = "-my-shell: cd: too many arguments";
         return ExecResult::Success(message);
       }
       message = args.front();
@@ -328,7 +328,7 @@ private:
 
   void printOutput(std::optional<string> output) {
     if (output.has_value()) {
-      std::cout << output.value();
+      std::cout << output.value() << endl;
       return;
     }
     return;
