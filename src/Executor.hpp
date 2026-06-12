@@ -350,6 +350,7 @@ public:
         return;
       }
       if (output.status == ExecResult::Status::Error) {
+        printOutput(output.error);
         continue;
       }
       redirect(redirection, output.output);
