@@ -128,6 +128,8 @@ private:
     argv.push_back(nullptr);
     return argv;
   }
+  // there is a bug here it return at the end of the output or error a \n (new
+  // line)
   ExecResult runProgram(const std::string &command,
                         std::vector<std::string> args) {
 
