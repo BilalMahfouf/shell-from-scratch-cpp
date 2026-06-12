@@ -292,9 +292,6 @@ private:
 
   void createFileIfDontExist(const std::string file) {
     std::string temp = file;
-    if (file.at(0) == '/') {
-      temp = "home/bilal" + file;
-    }
     fs::path filePath = temp;
     fs::path dir = filePath.parent_path();
 
