@@ -53,8 +53,12 @@ std::string autoComplete(const std::string &input) {
   if (input == "typ") {
     return input + "e ";
   }
+  if (input == "echo" || input == "exit" || input == "type") {
+    return input + " ";
+  }
   return input;
 }
+
 std::string readUserInputWithAutoComplete() {
   Terminal terminal;
   terminal.enableRaw();
@@ -78,7 +82,12 @@ std::string readUserInputWithAutoComplete() {
     // TAB (autocomplete)
     if (c == '\t') {
 
-      buffer = autoComplete(buffer);
+      std::string temp = autoComplete(buffer);
+      if (temp == buffer) {
+        std::cout << "\a";
+        continue;
+      }
+      buffer = temp;
 
       // redraw clean line
       std::cout << "\r" << prompt;
