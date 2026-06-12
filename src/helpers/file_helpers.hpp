@@ -46,4 +46,7 @@ inline std::string getCurrentWorkingDirectory() {
   }
   return "";
 }
+inline bool isEmpty(const fs::path &file) {
+  return fs::exists(file) && fs::file_size(file) == 0;
+}
 } // namespace file_helpers
