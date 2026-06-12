@@ -298,6 +298,9 @@ private:
     if (token == ">>")
       return RedirectionType::AppendOut;
 
+    if (token == "1>>")
+      return RedirectionType::AppendOut;
+
     if (token == "2>>")
       return RedirectionType::AppendErr;
 

@@ -310,6 +310,21 @@ private:
     out.close();
     return;
   }
+  void redirectAppend(const std::string file, const std::string content) {
+    createFileIfDontExist(file);
+    {
+      std::ofstream out(file, std::ios::app);
+      if (!str::isNullOrWhiteSpace(content)) {
+        if (file_helpers::isEmpty(file)) {
+
+          out << content;
+          return;
+        }
+        out << endl << content;
+      }
+    }
+    return;
+  }
   void redirect(parser::Redirection redirect, const std::string content) {
     switch (redirect.type) {
     case ::parser::RedirectionType::Stdout:
@@ -318,6 +333,13 @@ private:
 
     case ::parser::RedirectionType::Stderr:
       redirectStd(redirect.file, content);
+      break;
+    case ::parser::RedirectionType::AppendErr:
+      redirectAppend(redirect.file, content);
+      break;
+
+    case ::parser::RedirectionType::AppendOut:
+      redirectAppend(redirect.file, content);
       break;
     }
   }
@@ -374,6 +396,20 @@ public:
           printOutput(output.output);
         }
         redirect(redirection, output.error);
+        continue;
+      }
+      if (redirection.type == parser::RedirectionType::AppendErr) {
+        if (!str::isNullOrWhiteSpace(output.output)) {
+          printOutput(output.output);
+        }
+        redirect(redirection, output.error);
+        continue;
+      }
+      if (redirection.type == parser::RedirectionType::AppendOut) {
+        if (!str::isNullOrWhiteSpace(output.error)) {
+          printOutput(output.error);
+        }
+        redirect(redirection, output.output);
         continue;
       }
     }
