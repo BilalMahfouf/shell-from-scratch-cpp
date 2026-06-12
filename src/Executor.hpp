@@ -328,6 +328,11 @@ private:
 
   void printOutput(std::optional<string> output) {
     if (output.has_value()) {
+      if (output->back() == '\n') {
+
+        std::cout << output.value();
+        return;
+      }
       std::cout << output.value() << endl;
       return;
     }
