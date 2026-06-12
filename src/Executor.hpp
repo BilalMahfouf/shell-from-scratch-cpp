@@ -33,6 +33,13 @@ struct ExecResult {
   static ExecResult Exit(int code = -1) { return {"", "", Status::Exit, code}; }
 
   static ExecResult Empty() { return {"", "", Status::Success, 0}; }
+
+  static ExecResult Create(std::string output, std::string error,
+                           int exitCode) {
+    return {.output = std::move(output),
+            .error = std::move(error),
+            .exitCode = exitCode};
+  }
 };
 class Executor {
 private:
@@ -199,11 +206,7 @@ private:
 
         int code = WEXITSTATUS(status);
 
-        if (code == 0) {
-          return ExecResult::Success(std::move(output));
-        }
-
-        return ExecResult::Error(std::move(error));
+        return ExecResult::Create(output, error, code);
       }
 
       return ExecResult::Exit();
@@ -349,7 +352,10 @@ public:
         exit = true;
         return;
       }
-      if (output.status == ExecResult::Status::Error) {
+      // std::cout << endl
+      //           << "output: " << output.output << endl
+      //           << "error: " << output.error << endl;
+      if (!str::isNullOrWhiteSpace(output.error)) {
         printOutput(output.error);
       }
       redirect(redirection, output.output);
