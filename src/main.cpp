@@ -43,7 +43,7 @@ std::string readUserCommand() {
   std::getline(std::cin, command);
   return command;
 }
-std::string autoComplete(const std::string &input) {
+std::string builtInAutoComplete(const std::string &input) {
   if (input == "ech") {
     return input + "o ";
   }
@@ -55,6 +55,20 @@ std::string autoComplete(const std::string &input) {
   }
   if (input == "echo" || input == "exit" || input == "type") {
     return input + " ";
+  }
+  return input;
+}
+std::string notBuiltInutoComplete(const std::string &input) {
+  const char *env = getenv("PATH");
+  std::string path = env;
+
+  auto paths = str::Split(path, ":");
+  for (const auto &p : paths) {
+    auto programs = str::Split(p, "/");
+    for (const auto &program : programs)
+      if (program.front() == input.front() && program.contains(input)) {
+        return program + " ";
+      }
   }
   return input;
 }
@@ -82,10 +96,15 @@ std::string readUserInputWithAutoComplete() {
     // TAB (autocomplete)
     if (c == '\t') {
 
-      std::string temp = autoComplete(buffer);
+      std::string temp = builtInAutoComplete(buffer);
       if (temp == buffer) {
         std::cout << "\a";
-        continue;
+        temp = notBuiltInutoComplete(buffer);
+        // std::cout << std::endl << temp << std::endl;
+        if (temp == buffer) {
+          temp.clear();
+          continue;
+        }
       }
       buffer = temp;
 
