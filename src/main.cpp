@@ -10,12 +10,14 @@
 #include <filesystem>
 #include <iostream>
 #include <iterator>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <variant>
 #include <vector>
 
 #include <termios.h>
@@ -77,11 +79,16 @@ std::vector<string> notBuiltInutoComplete(const std::string &input) {
     for (const auto entry : fs::directory_iterator(dir)) {
       const auto file = entry.path().filename().string();
       if (file.starts_with(input) && access(entry.path().c_str(), X_OK) == 0) {
-        result.push_back(file + " ");
+        result.push_back(file);
       }
     }
   }
-  std::sort(result.begin(), result.end());
+  std::sort(result.begin(), result.end(),
+            [](const std::string &a, const std::string &b) {
+              if (a.size() != b.size())
+                return a.size() < b.size(); // shorter first
+              return a < b;                 // lexicographic tie-break
+            });
   return result;
 }
 
@@ -94,6 +101,19 @@ void printArrayElement(const std::vector<string> &elements,
     std::cout << elements.at(i);
   }
 }
+void printCompletedCommand(const std::string &command) {
+  const std::string prompt = "$ ";
+  // redraw clean line
+  std::cout << "\r" << prompt;
+
+  std::cout << command;
+
+  // IMPORTANT: erase leftover chars from previous longer input
+  std::cout << " \r";
+  std::cout << "\r" << prompt << command;
+
+  std::cout.flush();
+}
 std::string readUserInputWithAutoComplete() {
   Terminal terminal;
   terminal.enableRaw();
@@ -104,6 +124,8 @@ std::string readUserInputWithAutoComplete() {
 
   std::cout << prompt;
   std::cout.flush();
+  std::optional<size_t> i = std::nullopt;
+  size_t completionSize{0};
 
   while (true) {
 
@@ -117,53 +139,35 @@ std::string readUserInputWithAutoComplete() {
 
     // TAB (autocomplete)
     if (c == '\t') {
-      isSecondTab = !isSecondTab;
 
       std::string temp = builtInAutoComplete(buffer);
       if (temp == buffer) {
         const auto completions = notBuiltInutoComplete(buffer);
-
-        std::cout << "\a";
-        if (completions.size() > 1) {
-          // add here the display all the completions
-          if (isSecondTab) {
-            printArrayElement(completions, " ");
-          } else {
-            std::cout << std::endl;
-            continue;
-          }
-          std::cout << std::endl;
-          // redraw clean line
-
-          std::cout << "\r" << prompt;
-
-          std::cout << buffer;
-
-          continue;
+        if (i.has_value()) {
+          i = i.value() + 1;
         }
-
+        if (!i.has_value() && completions.size() > 1) {
+          i = 0;
+          completionSize = completions.size();
+        }
+        std::cout << "\a";
         if (completions.empty()) {
-
           continue;
         }
 
         if (completions.front() == buffer) {
           continue;
         }
-        temp = completions.front();
+        if (i.value() != (completionSize - 1)) {
+          temp = completions.front();
+        } else {
+          temp = completions.front();
+          // temp.append(" ");
+        }
       }
       buffer = temp;
 
-      // redraw clean line
-      std::cout << "\r" << prompt;
-
-      std::cout << buffer;
-
-      // IMPORTANT: erase leftover chars from previous longer input
-      std::cout << " \r";
-      std::cout << "\r" << prompt << buffer;
-
-      std::cout.flush();
+      printCompletedCommand(buffer);
       continue;
     }
 
