@@ -1,6 +1,7 @@
 #include "./tests/parser_tests.hpp"
 #include "Executor.hpp"
 #include "Parser.hpp"
+#include "helpers/file_helpers.hpp"
 #include "str.h"
 #include <algorithm>
 #include <cstddef>
@@ -8,6 +9,7 @@
 #include <execution>
 #include <filesystem>
 #include <iostream>
+#include <iterator>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -58,19 +60,28 @@ std::string builtInAutoComplete(const std::string &input) {
   }
   return input;
 }
-std::string notBuiltInutoComplete(const std::string &input) {
+
+std::vector<string> notBuiltInutoComplete(const std::string &input) {
   const char *env = getenv("PATH");
+  if (!env) {
+    return {};
+  }
   std::string path = env;
+  std::vector<string> result{};
 
   auto paths = str::Split(path, ":");
-  for (const auto &p : paths) {
-    auto programs = str::Split(p, "/");
-    for (const auto &program : programs)
-      if (program.front() == input.front() && program.contains(input)) {
-        return program + " ";
+  for (const auto &dir : paths) {
+    if (!fs::exists(dir) || !fs::is_directory(dir))
+      continue;
+
+    for (const auto entry : fs::directory_iterator(dir)) {
+      const auto file = entry.path().filename().string();
+      if (file.starts_with(input) && access(entry.path().c_str(), X_OK) == 0) {
+        result.push_back(file + " ");
       }
+    }
   }
-  return input;
+  return result;
 }
 
 std::string readUserInputWithAutoComplete() {
@@ -98,13 +109,21 @@ std::string readUserInputWithAutoComplete() {
 
       std::string temp = builtInAutoComplete(buffer);
       if (temp == buffer) {
-        std::cout << "\a";
-        temp = notBuiltInutoComplete(buffer);
-        // std::cout << std::endl << temp << std::endl;
-        if (temp == buffer) {
-          temp.clear();
+        const auto completions = notBuiltInutoComplete(buffer);
+        if (completions.size() > 1) {
+          // add here the display all the completions
           continue;
         }
+
+        std::cout << "\a";
+        if (completions.empty()) {
+          continue;
+        }
+
+        if (completions.front() == buffer) {
+          continue;
+        }
+        temp = completions.front();
       }
       buffer = temp;
 
