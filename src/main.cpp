@@ -84,6 +84,15 @@ std::vector<string> notBuiltInutoComplete(const std::string &input) {
   return result;
 }
 
+void printArrayElement(const std::vector<string> &elements,
+                       const std::string &separator = " ") {
+  for (size_t i{0}; i < elements.size(); ++i) {
+    if (i != 0) {
+      std::cout << separator;
+    }
+    std::cout << elements.at(i);
+  }
+}
 std::string readUserInputWithAutoComplete() {
   Terminal terminal;
   terminal.enableRaw();
@@ -110,12 +119,21 @@ std::string readUserInputWithAutoComplete() {
       std::string temp = builtInAutoComplete(buffer);
       if (temp == buffer) {
         const auto completions = notBuiltInutoComplete(buffer);
+
+        std::cout << "\a";
         if (completions.size() > 1) {
           // add here the display all the completions
+          std::cout << std::endl;
+          printArrayElement(completions, " ");
+          std::cout << endl;
+          // redraw clean line
+          std::cout << "\r" << prompt;
+
+          std::cout << buffer;
+
           continue;
         }
 
-        std::cout << "\a";
         if (completions.empty()) {
           continue;
         }
