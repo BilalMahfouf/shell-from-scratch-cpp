@@ -81,6 +81,7 @@ std::vector<string> notBuiltInutoComplete(const std::string &input) {
       }
     }
   }
+  std::sort(result.begin(), result.end());
   return result;
 }
 
@@ -99,6 +100,7 @@ std::string readUserInputWithAutoComplete() {
   std::string buffer;
   char c;
   const std::string prompt = "$ ";
+  bool isSecondTab = true;
 
   std::cout << prompt;
   std::cout.flush();
@@ -115,6 +117,7 @@ std::string readUserInputWithAutoComplete() {
 
     // TAB (autocomplete)
     if (c == '\t') {
+      isSecondTab = !isSecondTab;
 
       std::string temp = builtInAutoComplete(buffer);
       if (temp == buffer) {
@@ -122,10 +125,16 @@ std::string readUserInputWithAutoComplete() {
 
         std::cout << "\a";
         if (completions.size() > 1) {
+          // add here the display all the completions
+          if (isSecondTab) {
+            printArrayElement(completions, " ");
+          } else {
+            std::cout << std::endl;
+            continue;
+          }
           std::cout << std::endl;
-          printArrayElement(completions, " ");
-          std::cout << endl;
           // redraw clean line
+
           std::cout << "\r" << prompt;
 
           std::cout << buffer;
@@ -134,6 +143,7 @@ std::string readUserInputWithAutoComplete() {
         }
 
         if (completions.empty()) {
+
           continue;
         }
 
