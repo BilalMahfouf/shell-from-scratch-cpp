@@ -122,7 +122,6 @@ std::string readUserInputWithAutoComplete() {
 
         std::cout << "\a";
         if (completions.size() > 1) {
-          // add here the display all the completions
           std::cout << std::endl;
           printArrayElement(completions, " ");
           std::cout << endl;
