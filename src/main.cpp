@@ -4,6 +4,7 @@
 #include "helpers/file_helpers.hpp"
 #include "str.h"
 #include <algorithm>
+#include <concepts>
 #include <cstddef>
 #include <cstdlib>
 #include <execution>
@@ -12,6 +13,7 @@
 #include <iterator>
 #include <optional>
 #include <ostream>
+#include <set>
 #include <sstream>
 #include <string>
 #include <sys/types.h>
@@ -114,7 +116,7 @@ void printCompletedCommand(const std::string &command) {
 
   std::cout.flush();
 }
-std::string readUserInputWithAutoComplete() {
+std::string readUserInputWithAutoComplete1() {
   Terminal terminal;
   terminal.enableRaw();
   std::string buffer;
@@ -139,9 +141,17 @@ std::string readUserInputWithAutoComplete() {
 
     // TAB (autocomplete)
     if (c == '\t') {
+      if (!i.has_value()) {
+        isSecondTab = !isSecondTab;
+      }
 
       std::string temp = builtInAutoComplete(buffer);
       if (temp == buffer) {
+
+        std::cout << "\a";
+        if (!isSecondTab) {
+          continue;
+        }
         const auto completions = notBuiltInutoComplete(buffer);
         if (i.has_value()) {
           i = i.value() + 1;
@@ -150,7 +160,6 @@ std::string readUserInputWithAutoComplete() {
           i = 0;
           completionSize = completions.size();
         }
-        std::cout << "\a";
         if (completions.empty()) {
           continue;
         }
@@ -159,15 +168,112 @@ std::string readUserInputWithAutoComplete() {
           continue;
         }
         if (i.value() != (completionSize - 1)) {
+          isSecondTab = true;
           temp = completions.front();
         } else {
           temp = completions.front();
-          // temp.append(" ");
+          if (isSecondTab) {
+            temp.append(" ");
+          }
         }
       }
       buffer = temp;
 
       printCompletedCommand(buffer);
+      continue;
+    }
+
+    // BACKSPACE
+    if (c == 127) {
+      if (!buffer.empty()) {
+        buffer.pop_back();
+
+        std::cout << "\b \b";
+        std::cout.flush();
+      }
+      continue;
+    }
+
+    // normal char
+    buffer.push_back(c);
+    std::cout << c;
+    std::cout.flush();
+  }
+
+  terminal.restore();
+  return buffer;
+}
+std::string readUserInputWithAutoComplete() {
+  Terminal terminal;
+  terminal.enableRaw();
+  std::string buffer;
+  char c;
+  const std::string prompt = "$ ";
+  bool isSecondTab = true;
+
+  std::cout << prompt;
+  std::cout.flush();
+
+  while (true) {
+
+    read(STDIN_FILENO, &c, 1);
+
+    // ENTER
+    if (c == '\n') {
+      std::cout << "\n";
+      break;
+    }
+
+    // TAB (autocomplete)
+    if (c == '\t') {
+      isSecondTab = !isSecondTab;
+
+      std::string temp = builtInAutoComplete(buffer);
+      if (temp == buffer) {
+        const auto completions = notBuiltInutoComplete(buffer);
+
+        std::cout << "\a";
+        // add here the display all the completions
+        // if (isSecondTab) {
+        // std::cout << std::endl;
+        // printArrayElement(completions, " ");
+        if (completions.size() == 1) {
+          buffer = completions.front() + " ";
+          // redraw clean line
+          std::cout << "\r" << prompt;
+
+          std::cout << buffer;
+          std::cout.flush();
+          continue;
+          isSecondTab = true;
+        }
+
+        // } else {
+        // continue;
+        // }
+
+        if (completions.empty()) {
+
+          continue;
+        }
+
+        if (completions.front() == buffer) {
+          continue;
+        }
+        temp = completions.front();
+      }
+      buffer = temp;
+
+      // redraw clean line
+      std::cout << "\r" << prompt;
+
+      std::cout << buffer;
+
+      // IMPORTANT: erase leftover chars from previous longer input
+      std::cout << " \r";
+      std::cout << "\r" << prompt << buffer;
+
+      std::cout.flush();
       continue;
     }
 
