@@ -116,100 +116,41 @@ void printCompletedCommand(const std::string &command) {
 
   std::cout.flush();
 }
-std::string readUserInputWithAutoComplete1() {
-  Terminal terminal;
-  terminal.enableRaw();
-  std::string buffer;
-  char c;
-  const std::string prompt = "$ ";
-  bool isSecondTab = true;
 
-  std::cout << prompt;
-  std::cout.flush();
-  std::optional<size_t> i = std::nullopt;
-  size_t completionSize{0};
+std::string longestCommonPrefix(const std::vector<std::string> &elements) {
+  if (elements.empty())
+    return "";
 
-  while (true) {
+  std::string prefix = elements.front();
 
-    read(STDIN_FILENO, &c, 1);
+  for (size_t i = 1; i < elements.size(); i++) {
 
-    // ENTER
-    if (c == '\n') {
-      std::cout << "\n";
-      break;
+    size_t j = 0;
+
+    while (j < prefix.size() && j < elements[i].size() &&
+           prefix[j] == elements[i][j]) {
+      j++;
     }
 
-    // TAB (autocomplete)
-    if (c == '\t') {
-      if (!i.has_value()) {
-        isSecondTab = !isSecondTab;
-      }
-
-      std::string temp = builtInAutoComplete(buffer);
-      if (temp == buffer) {
-
-        std::cout << "\a";
-        if (!isSecondTab) {
-          continue;
-        }
-        const auto completions = notBuiltInutoComplete(buffer);
-        if (i.has_value()) {
-          i = i.value() + 1;
-        }
-        if (!i.has_value() && completions.size() > 1) {
-          i = 0;
-          completionSize = completions.size();
-        }
-        if (completions.empty()) {
-          continue;
-        }
-
-        if (completions.front() == buffer) {
-          continue;
-        }
-        if (i.value() != (completionSize - 1)) {
-          isSecondTab = true;
-          temp = completions.front();
-        } else {
-          temp = completions.front();
-          if (isSecondTab) {
-            temp.append(" ");
-          }
-        }
-      }
-      buffer = temp;
-
-      printCompletedCommand(buffer);
-      continue;
-    }
-
-    // BACKSPACE
-    if (c == 127) {
-      if (!buffer.empty()) {
-        buffer.pop_back();
-
-        std::cout << "\b \b";
-        std::cout.flush();
-      }
-      continue;
-    }
-
-    // normal char
-    buffer.push_back(c);
-    std::cout << c;
-    std::cout.flush();
+    prefix = prefix.substr(0, j);
   }
 
-  terminal.restore();
-  return buffer;
+  return prefix;
 }
+
 std::string readUserInputWithAutoComplete() {
+
   Terminal terminal;
   terminal.enableRaw();
+
   std::string buffer;
   char c;
+
   const std::string prompt = "$ ";
-  bool isSecondTab = true;
+
+  bool tabPressedBefore = false;
+  std::string lastBuffer;
+  std::vector<std::string> lastCompletions;
 
   std::cout << prompt;
   std::cout.flush();
@@ -224,77 +165,135 @@ std::string readUserInputWithAutoComplete() {
       break;
     }
 
-    // TAB (autocomplete)
+    // TAB
     if (c == '\t') {
-      isSecondTab = !isSecondTab;
 
       std::string temp = builtInAutoComplete(buffer);
-      if (temp == buffer) {
-        const auto completions = notBuiltInutoComplete(buffer);
+
+      // builtin completion
+      if (temp != buffer) {
+
+        buffer = temp;
+
+        std::cout << "\r" << prompt << buffer;
+        std::cout.flush();
+
+        tabPressedBefore = false;
+        lastBuffer.clear();
+        lastCompletions.clear();
+
+        continue;
+      }
+
+      auto completions = notBuiltInutoComplete(buffer);
+
+      if (completions.empty()) {
 
         std::cout << "\a";
-        // add here the display all the completions
-        // if (isSecondTab) {
-        // std::cout << std::endl;
-        // printArrayElement(completions, " ");
-        if (completions.size() == 1) {
-          buffer = completions.front() + " ";
-          // redraw clean line
-          std::cout << "\r" << prompt;
+        std::cout.flush();
 
-          std::cout << buffer;
-          std::cout.flush();
-          continue;
-          isSecondTab = true;
-        }
-
-        // } else {
-        // continue;
-        // }
-
-        if (completions.empty()) {
-
-          continue;
-        }
-
-        if (completions.front() == buffer) {
-          continue;
-        }
-        temp = completions.front();
+        tabPressedBefore = false;
+        continue;
       }
-      buffer = temp;
 
-      // redraw clean line
-      std::cout << "\r" << prompt;
+      // one match
+      if (completions.size() == 1) {
 
-      std::cout << buffer;
+        buffer = completions.front() + " ";
 
-      // IMPORTANT: erase leftover chars from previous longer input
-      std::cout << " \r";
-      std::cout << "\r" << prompt << buffer;
+        std::cout << "\r" << prompt << buffer;
+        std::cout.flush();
 
-      std::cout.flush();
+        tabPressedBefore = false;
+        lastBuffer.clear();
+        lastCompletions.clear();
+
+        continue;
+      }
+
+      bool sameSituation = tabPressedBefore && buffer == lastBuffer &&
+                           completions == lastCompletions;
+
+      // second TAB
+      if (sameSituation) {
+
+        auto display = completions;
+
+        std::sort(display.begin(), display.end());
+
+        std::cout << "\n";
+
+        printArrayElement(display, "  ");
+
+        std::cout << "\n";
+
+        std::cout << prompt << buffer;
+        std::cout.flush();
+
+        tabPressedBefore = false;
+
+        continue;
+      }
+
+      // first TAB -> LCP
+
+      std::string prefix = longestCommonPrefix(completions);
+
+      if (prefix.size() > buffer.size()) {
+
+        buffer = prefix;
+
+        std::cout << "\r" << prompt << buffer;
+        std::cout.flush();
+
+      } else {
+
+        // no progress
+        std::cout << "\a";
+        std::cout.flush();
+      }
+
+      lastBuffer = buffer;
+      lastCompletions = completions;
+
+      tabPressedBefore = true;
+
       continue;
     }
 
     // BACKSPACE
     if (c == 127) {
+
       if (!buffer.empty()) {
+
         buffer.pop_back();
 
         std::cout << "\b \b";
         std::cout.flush();
       }
+
+      tabPressedBefore = false;
+      lastBuffer.clear();
+      lastCompletions.clear();
+
       continue;
     }
 
     // normal char
+
     buffer.push_back(c);
+
     std::cout << c;
     std::cout.flush();
+
+    // user typed -> reset tab state
+    tabPressedBefore = false;
+    lastBuffer.clear();
+    lastCompletions.clear();
   }
 
   terminal.restore();
+
   return buffer;
 }
 int main() {
