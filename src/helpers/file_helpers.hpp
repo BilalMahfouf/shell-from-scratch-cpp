@@ -1,6 +1,7 @@
 #pragma once
 #include <filesystem>
 #include <iostream>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -48,5 +49,15 @@ inline std::string getCurrentWorkingDirectory() {
 }
 inline bool isEmpty(const fs::path &file) {
   return fs::exists(file) && fs::file_size(file) == 0;
+}
+inline std::vector<std::string> getCurrentDirectoryFiles() {
+  std::vector<std::string> result{};
+  fs::path currentDir = fs::current_path();
+  for (const auto &entry : fs::directory_iterator(currentDir)) {
+    if (entry.path().filename().extension() == ".txt") {
+      result.push_back(entry.path().filename().string());
+    }
+  }
+  return result;
 }
 } // namespace file_helpers

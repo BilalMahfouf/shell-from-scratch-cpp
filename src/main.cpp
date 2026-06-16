@@ -1,48 +1,28 @@
-#include "./tests/parser_tests.hpp"
 #include "Executor.hpp"
 #include "Parser.hpp"
+#include "Terminal.hpp"
 #include "helpers/file_helpers.hpp"
 #include "str.h"
 #include <algorithm>
-#include <concepts>
 #include <cstddef>
 #include <cstdlib>
-#include <execution>
 #include <filesystem>
 #include <iostream>
-#include <iterator>
 #include <optional>
 #include <ostream>
-#include <set>
-#include <sstream>
 #include <string>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <variant>
 #include <vector>
 
 #include <termios.h>
 #include <unistd.h>
 
 using namespace std;
+parser::Parser parser1;
+Executor executer;
 
-class Terminal {
-private:
-  termios original;
-
-public:
-  void restore() { tcsetattr(STDIN_FILENO, TCSANOW, &original); }
-  void enableRaw() {
-    tcgetattr(STDIN_FILENO, &original);
-
-    termios raw = original;
-    raw.c_lflag &= ~(ICANON | ECHO);
-
-    // apply new settings
-    tcsetattr(STDIN_FILENO, TCSANOW, &raw);
-  }
-};
 std::string readUserCommand() {
   std::string command = "";
   std::cout << "$ ";
@@ -138,6 +118,31 @@ std::string longestCommonPrefix(const std::vector<std::string> &elements) {
   return prefix;
 }
 
+std::optional<std::string>
+fileCompletion(const std::vector<parser::Token> &tokens) {
+  if (tokens.size() == 1) {
+    return std::nullopt;
+  }
+  auto lastToken = tokens.back();
+  if (lastToken.type != parser::TokenType::WORD) {
+    return std::nullopt;
+  }
+  const auto currentDirectoryFiles = file_helpers::getCurrentDirectoryFiles();
+  if (currentDirectoryFiles.empty()) {
+    return std::nullopt;
+  }
+  auto firstFile = currentDirectoryFiles.front();
+  if (lastToken.value.front() == firstFile.front() &&
+      firstFile.contains(lastToken.value)) {
+    return firstFile;
+  }
+  return std::nullopt;
+}
+void printBuffer(const std::string &buffer) {
+  const std::string prompt = "$ ";
+  std::cout << "\r" << prompt << buffer;
+  std::cout.flush();
+}
 std::string readUserInputWithAutoComplete() {
 
   Terminal terminal;
@@ -149,8 +154,8 @@ std::string readUserInputWithAutoComplete() {
   const std::string prompt = "$ ";
 
   bool tabPressedBefore = false;
-  std::string lastBuffer;
-  std::vector<std::string> lastCompletions;
+  std::string lastBuffer = "";
+  std::vector<std::string> lastCompletions{};
 
   std::cout << prompt;
   std::cout.flush();
@@ -167,6 +172,16 @@ std::string readUserInputWithAutoComplete() {
 
     // TAB
     if (c == '\t') {
+      auto tokens = parser1.lex(buffer);
+      if (tokens.size() > 1) {
+        auto file = fileCompletion(tokens);
+        if (!file.has_value()) {
+          continue;
+        }
+        buffer = file.value();
+        printBuffer(buffer);
+        continue;
+      }
 
       std::string temp = builtInAutoComplete(buffer);
 
@@ -302,15 +317,13 @@ int main() {
   std::cerr << std::unitbuf;
 
   // // // execute();
-  parser::Parser parser;
-  Executor executer;
   bool exit = false;
 
   while (true) {
     // const std::string input = readUserCommand();
     std::string input = readUserInputWithAutoComplete();
-    std::vector<parser::Token> tokens = parser.lex(input);
-    parser::ParsedCommand parsedCommand = parser.parseInput(tokens);
+    std::vector<parser::Token> tokens = parser1.lex(input);
+    parser::ParsedCommand parsedCommand = parser1.parseInput(tokens);
 
     executer.run(parsedCommand, exit);
     if (exit) {
