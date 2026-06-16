@@ -178,7 +178,8 @@ std::string readUserInputWithAutoComplete() {
         if (!file.has_value()) {
           continue;
         }
-        buffer = file.value();
+        buffer = tokens.front().value + " " + file.value() + " ";
+
         printBuffer(buffer);
         continue;
       }
