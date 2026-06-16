@@ -50,25 +50,55 @@ inline std::string getCurrentWorkingDirectory() {
 inline bool isEmpty(const fs::path &file) {
   return fs::exists(file) && fs::file_size(file) == 0;
 }
-inline std::vector<std::string> getCurrentDirectoryFiles() {
-  std::vector<std::string> result{};
+enum class EntryType { File, Directory };
+
+struct DirectoryEntry {
+  std::string name;
+  EntryType type;
+};
+inline std::vector<DirectoryEntry> getCurrentDirectoryFilesAndDirectories() {
   fs::path currentDir = fs::current_path();
-  for (const auto &entry : fs::directory_iterator(currentDir)) {
-    if (entry.path().filename().extension() == ".txt") {
-      result.push_back(entry.path().filename().string());
-    }
-  }
-  return result;
-}
-inline std::vector<std::string> getDirectoryFiles(const std::string &path) {
-  std::vector<std::string> result{};
-  fs::path currentDir = fs::path(path);
   if (!fs::exists(currentDir) || !fs::is_directory(currentDir))
     return {};
+
+  DirectoryEntry dirEntry;
+  std::vector<DirectoryEntry> result{};
+
   for (const auto &entry : fs::directory_iterator(currentDir)) {
-    if (entry.path().extension() == ".txt") {
-      result.push_back(entry.path().filename().string());
+    if (fs::is_directory(entry.path())) {
+      dirEntry = {.name = entry.path().filename().string(),
+                  .type = EntryType::Directory};
+      result.push_back(dirEntry);
+    } else {
+      dirEntry = {.name = entry.path().filename().string(),
+                  .type = EntryType::File};
+
+      result.push_back(dirEntry);
     }
+  }
+
+  return result;
+}
+inline std::vector<DirectoryEntry> getDirectoryFiles(const std::string &path) {
+  std::vector<DirectoryEntry> result{};
+  fs::path currentDir = fs::path(path);
+
+  if (!fs::exists(currentDir) || !fs::is_directory(currentDir))
+    return {};
+
+  DirectoryEntry dirEntry;
+  for (const auto &entry : fs::directory_iterator(currentDir)) {
+    if (fs::is_directory(entry.path())) {
+      dirEntry = {.name = entry.path().filename().string(),
+                  .type = EntryType::Directory};
+      result.push_back(dirEntry);
+    } else {
+      dirEntry = {.name = entry.path().filename().string(),
+                  .type = EntryType::File};
+
+      result.push_back(dirEntry);
+    }
+    // std::cout << std::endl << entry.path().filename().string() << std::endl;
   }
 
   return result;

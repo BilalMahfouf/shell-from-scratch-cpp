@@ -118,25 +118,42 @@ std::string longestCommonPrefix(const std::vector<std::string> &elements) {
   return prefix;
 }
 
-std::optional<std::string>
+// to do make this function accept a tokenValue instead of all tokens
+std::vector<std::string>
 fileCompletion(const std::vector<parser::Token> &tokens) {
-  if (tokens.size() == 1) {
-    return std::nullopt;
+  if (tokens.size() == 0) {
+    return {};
   }
+  std::vector<std::string> result{};
   auto lastToken = tokens.back();
   if (lastToken.type != parser::TokenType::WORD) {
-    return std::nullopt;
+    return {};
   }
-  const auto currentDirectoryFiles = file_helpers::getCurrentDirectoryFiles();
-  if (currentDirectoryFiles.empty()) {
-    return std::nullopt;
+  const auto currentDirectoryFilesAndDirectories =
+      file_helpers::getCurrentDirectoryFilesAndDirectories();
+  if (currentDirectoryFilesAndDirectories.empty()) {
+    return {};
   }
-  auto firstFile = currentDirectoryFiles.front();
-  if (lastToken.value.front() == firstFile.front() &&
-      firstFile.contains(lastToken.value)) {
-    return firstFile;
+  for (const auto &e : currentDirectoryFilesAndDirectories) {
+    if (tokens.size() == 1) {
+      if (e.type == file_helpers::EntryType::Directory) {
+        result.push_back(e.name + "/");
+      } else {
+        result.push_back(e.name + " ");
+      }
+      continue;
+    }
+    if (lastToken.value.front() == e.name.front() &&
+        e.name.contains(lastToken.value)) {
+      if (e.type == file_helpers::EntryType::Directory) {
+        result.push_back(e.name + "/");
+      } else {
+        result.push_back(e.name + " ");
+      }
+    }
   }
-  return std::nullopt;
+
+  return result;
 }
 std::vector<std::string> nestedfileCompletion(const std::string &tokenValue) {
   std::string path = tokenValue;
@@ -158,10 +175,18 @@ std::vector<std::string> nestedfileCompletion(const std::string &tokenValue) {
   }
   for (const auto &file : files) {
     if (path == tokenValue) {
-      result.push_back(path + file);
-    } else if (fileToCompleteName.front() == file.front() &&
-               file.contains(fileToCompleteName)) {
-      result.push_back(path + file);
+      if (file.type == file_helpers::EntryType::Directory) {
+        result.push_back(path + file.name + "/");
+      } else {
+        result.push_back(path + file.name + " ");
+      }
+    } else if (fileToCompleteName.front() == file.name.front() &&
+               file.name.contains(fileToCompleteName)) {
+      if (file.type == file_helpers::EntryType::Directory) {
+        result.push_back(path + file.name + "/");
+      } else {
+        result.push_back(path + file.name + " ");
+      }
     }
   }
 
@@ -201,27 +226,34 @@ std::string readUserInputWithAutoComplete() {
 
     // TAB
     if (c == '\t') {
-      auto tokens = parser1.lex(buffer);
+      auto tokens = parser1.lex(str::Trim(buffer));
       std::optional<string> file = std::nullopt;
-      if (tokens.size() > 1) {
+      std::vector<std::string> tempArray{};
+      if (tokens.size() > 0) {
         if (tokens.back().type != parser::TokenType::WORD) {
           continue;
         }
         if (tokens.back().value.contains("/")) {
-          auto temp = nestedfileCompletion(tokens.back().value);
-          if (temp.empty()) {
+          tempArray = nestedfileCompletion(tokens.back().value);
+          if (tempArray.empty()) {
+
             continue;
           }
-          file = temp.front();
+          file = tempArray.front();
 
         } else {
-          file = fileCompletion(tokens);
+
+          tempArray = fileCompletion(tokens);
+          if (tempArray.empty()) {
+            continue;
+          }
+          file = tempArray.front();
         }
         if (!file.has_value()) {
           continue;
         }
 
-        buffer = tokens.front().value + " " + file.value() + " ";
+        buffer = tokens.front().value + " " + file.value();
         printBuffer(buffer);
         continue;
       }
@@ -365,6 +397,7 @@ int main() {
   while (true) {
     // const std::string input = readUserCommand();
     std::string input = readUserInputWithAutoComplete();
+    input = str::Trim(input);
     std::vector<parser::Token> tokens = parser1.lex(input);
     parser::ParsedCommand parsedCommand = parser1.parseInput(tokens);
 
