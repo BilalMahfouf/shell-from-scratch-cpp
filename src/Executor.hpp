@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <format>
+#include<sstream>
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -59,6 +60,30 @@ private:
 
     return Command::None;
   }
+
+  std::optional<std::string> findExecutable(const std::string& command){
+    const char* pathEnv = std::getenv("PATH");
+    
+    if (pathEnv == nullptr)
+        return {};
+
+    std::stringstream paths(pathEnv);
+    std::string directory;
+
+    while (std::getline(paths, directory, ':'))
+    {
+        fs::path executablePath = fs::path(directory) / command;
+
+        if (fs::exists(executablePath) &&
+            access(executablePath.c_str(), X_OK) == 0)
+        {
+            return executablePath.string();
+        }
+    }
+
+    return {};
+   }
+
   std::string getStringCommand(const Command &command) {
     switch (command) {
     case Command::Echo:
@@ -94,28 +119,39 @@ private:
     // std::cout << newMessage << endl;
     return newMessage;
   }
+
   std::string printInvalidCommand(const std::string &command) {
     return std::format("{}: not found", command);
   }
-  std::string type(const std::vector<std::string> args) {
-    std::string output = "";
-    for (const std::string &arg : args) {
 
-      const Command command = getEnumCommand(arg);
-      if (command == Command::None) {
-        string path = file_helpers::getExecutableCommandPath(arg);
-        if (path.empty()) {
-          output = printInvalidCommand(arg);
-        } else {
-          output = std::format("{} is {}", arg, path);
+  std::string type(const std::vector<std::string> args){
+    std::string output = "";
+
+    for (const std::string& arg : args)
+    {
+        const Command command = getEnumCommand(arg);
+
+        if (command != Command::None)
+        {
+            output += std::format("{} is a shell builtin\n", arg);
+            continue;
         }
-      } else {
-        output = std::format("{} is a shell builtin", arg);
-      }
-      output += '\n';
+
+        auto path = findExecutable(arg);
+
+        if (!path.has_value())
+        {
+            output += printInvalidCommand(arg);
+        }
+        else
+        {
+            output += std::format("{} is {}\n", arg, path.value());
+        }
     }
+
     return output;
   }
+
   std::vector<char *> getArgsForExecvp(std::string command,
                                        std::vector<string> &tokens) {
     std::vector<char *> argv{};
@@ -136,10 +172,10 @@ private:
     // std::cout << endl
     //           << "command: " << command << " args: " << args.at(0) << endl;
 
-    const std::string commandPath =
-        file_helpers::getExecutableCommandPath(command);
+    auto commandPath = findExecutable(command);
 
-    if (commandPath.empty()) {
+    if (!commandPath.has_value())
+    {
       return ExecResult::Error(command + ": command not found");
     }
 
@@ -167,7 +203,7 @@ private:
 
       auto argv = getArgsForExecvp(command, args);
 
-      execvp(commandPath.c_str(), argv.data());
+      execvp(commandPath.value().c_str(), argv.data());
 
       // exec failed
       _exit(127);
@@ -217,27 +253,37 @@ private:
       return ExecResult::Error("fork() failed");
     }
   }
-  void cd(const std::string &absolutePath) {
-    if (str::isNullOrWhiteSpace(absolutePath))
-      return;
-    if (absolutePath.at(0) == '/' || absolutePath.at(0) == '.') {
-      try {
 
-        fs::current_path(absolutePath);
+  void cd(const std::string &path){
+    if (str::isNullOrWhiteSpace(path))
         return;
-      } catch (const fs::filesystem_error &e) {
-        std::cout << "cd: " << absolutePath << ": No such file or directory"
-                  << endl;
-        // std::cerr << "Error: " << e.what() << std::endl;
-      }
-    } else if (absolutePath.at(0) == '~') {
-      const char *homeEnv = std::getenv("HOME");
-      if (homeEnv != nullptr) {
-        const std::string path = homeEnv + absolutePath.substr(1);
+
+    try
+    {
+        if (path.at(0) == '~')
+        {
+            const char* homeEnv = std::getenv("HOME");
+
+            if (homeEnv != nullptr)
+            {
+                fs::current_path(std::string(homeEnv) + path.substr(1));
+                return;
+            }
+        }
+
+        // handles:
+        // cd bilal
+        // cd ..
+        // cd .
+        // cd /home/user
         fs::current_path(path);
-      }
-    } else {
-      std::cerr << "Please provide an absolute path " << endl;
+
+    }
+    catch (const fs::filesystem_error &e)
+    {
+        std::cerr << "cd: " << path
+                  << ": No such file or directory"
+                  << std::endl;
     }
   }
 
