@@ -60,4 +60,18 @@ inline std::vector<std::string> getCurrentDirectoryFiles() {
   }
   return result;
 }
+inline std::vector<std::string> getDirectoryFiles(const std::string &path) {
+  std::vector<std::string> result{};
+  fs::path currentDir = fs::path(path);
+  if (!fs::exists(currentDir) || !fs::is_directory(currentDir))
+    return {};
+  for (const auto &entry : fs::directory_iterator(currentDir)) {
+    if (entry.path().extension() == ".txt") {
+      result.push_back(entry.path().filename().string());
+    }
+  }
+
+  return result;
+}
+
 } // namespace file_helpers
