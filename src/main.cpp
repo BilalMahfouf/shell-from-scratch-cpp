@@ -348,14 +348,41 @@ std::string readUserInputWithAutoComplete() {
 
           continue;
         }
-        if (isSecondTab) {
-          std::cout << endl;
-          printSortedArrayElement(completions, " ");
-          std::cout << std::endl;
+        // for zaki : to understand this code you should know about completions
+        // and partial completions with LCP(longet common prefix)
+        // and the diffrence between press tab once and twice
+
+        bool same = tabPressedBefore && buffer == lastBuffer &&
+                    completions == lastCompletions;
+
+        // second TAB → list
+        if (same) {
+          std::cout << "\n";
+          printSortedArrayElement(completions, "  ");
+          std::cout << "\n";
+          redraw();
+
+          tabPressedBefore = false;
+          continue;
+        }
+
+        // first TAB → LCP
+        std::string prefix = longestCommonPrefix(completions);
+        auto bufferTokens = parser1.lex(buffer);
+
+        if (prefix.size() > bufferTokens.at(1).value.size()) {
+          buffer = bufferTokens.front().value + " " + prefix;
+          cursor = buffer.size();
           redraw();
         } else {
-          bell();
+          std::cout << "\a";
         }
+
+        lastBuffer = buffer;
+        lastCompletions = completions;
+        tabPressedBefore = true;
+
+        continue;
       }
 
       // ---------- BUILTIN ----------
