@@ -12,4 +12,4 @@ set(CMAKE_BUILD_TYPE Debug)
 
 add_executable(shell ${SOURCE_FILES})
 
-target_link_libraries(shell PRIVATE readline)
+target_link_libraries(shell PRIVATE readline) 
