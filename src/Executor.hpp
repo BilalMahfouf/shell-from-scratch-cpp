@@ -5,10 +5,10 @@
 #include <cstdlib>
 #include <filesystem>
 #include <format>
-#include<sstream>
 #include <fstream>
 #include <iostream>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -61,28 +61,26 @@ private:
     return Command::None;
   }
 
-  std::optional<std::string> findExecutable(const std::string& command){
-    const char* pathEnv = std::getenv("PATH");
-    
+  std::optional<std::string> findExecutable(const std::string &command) {
+    const char *pathEnv = std::getenv("PATH");
+
     if (pathEnv == nullptr)
-        return {};
+      return {};
 
     std::stringstream paths(pathEnv);
     std::string directory;
 
-    while (std::getline(paths, directory, ':'))
-    {
-        fs::path executablePath = fs::path(directory) / command;
+    while (std::getline(paths, directory, ':')) {
+      fs::path executablePath = fs::path(directory) / command;
 
-        if (fs::exists(executablePath) &&
-            access(executablePath.c_str(), X_OK) == 0)
-        {
-            return executablePath.string();
-        }
+      if (fs::exists(executablePath) &&
+          access(executablePath.c_str(), X_OK) == 0) {
+        return executablePath.string();
+      }
     }
 
     return {};
-   }
+  }
 
   std::string getStringCommand(const Command &command) {
     switch (command) {
@@ -124,29 +122,25 @@ private:
     return std::format("{}: not found", command);
   }
 
-  std::string type(const std::vector<std::string> args){
+  std::string type(std::vector<std::string> args) {
     std::string output = "";
+    args.erase(args.begin());
 
-    for (const std::string& arg : args)
-    {
-        const Command command = getEnumCommand(arg);
+    for (const std::string &arg : args) {
+      const Command command = getEnumCommand(arg);
 
-        if (command != Command::None)
-        {
-            output += std::format("{} is a shell builtin\n", arg);
-            continue;
-        }
+      if (command != Command::None) {
+        output += std::format("{} is a shell builtin\n", arg);
+        continue;
+      }
 
-        auto path = findExecutable(arg);
+      auto path = findExecutable(arg);
 
-        if (!path.has_value())
-        {
-            output += printInvalidCommand(arg);
-        }
-        else
-        {
-            output += std::format("{} is {}\n", arg, path.value());
-        }
+      if (!path.has_value()) {
+        output += printInvalidCommand(arg);
+      } else {
+        output += std::format("{} is {}\n", arg, path.value());
+      }
     }
 
     return output;
@@ -174,8 +168,7 @@ private:
 
     auto commandPath = findExecutable(command);
 
-    if (!commandPath.has_value())
-    {
+    if (!commandPath.has_value()) {
       return ExecResult::Error(command + ": command not found");
     }
 
@@ -254,36 +247,29 @@ private:
     }
   }
 
-  void cd(const std::string &path){
+  void cd(const std::string &path) {
     if (str::isNullOrWhiteSpace(path))
-        return;
+      return;
 
-    try
-    {
-        if (path.at(0) == '~')
-        {
-            const char* homeEnv = std::getenv("HOME");
+    try {
+      if (path.at(0) == '~') {
+        const char *homeEnv = std::getenv("HOME");
 
-            if (homeEnv != nullptr)
-            {
-                fs::current_path(std::string(homeEnv) + path.substr(1));
-                return;
-            }
+        if (homeEnv != nullptr) {
+          fs::current_path(std::string(homeEnv) + path.substr(1));
+          return;
         }
+      }
 
-        // handles:
-        // cd bilal
-        // cd ..
-        // cd .
-        // cd /home/user
-        fs::current_path(path);
+      // handles:
+      // cd bilal
+      // cd ..
+      // cd .
+      // cd /home/user
+      fs::current_path(path);
 
-    }
-    catch (const fs::filesystem_error &e)
-    {
-        std::cerr << "cd: " << path
-                  << ": No such file or directory"
-                  << std::endl;
+    } catch (const fs::filesystem_error &e) {
+      std::cerr << "cd: " << path << ": No such file or directory" << std::endl;
     }
   }
 
