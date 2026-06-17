@@ -82,6 +82,17 @@ void printArrayElement(const std::vector<string> &elements,
     std::cout << elements.at(i);
   }
 }
+void printSortedArrayElement(std::vector<string> elements,
+                             const std::string &separator = " ") {
+  std::sort(elements.begin(), elements.end());
+  for (size_t i{0}; i < elements.size(); ++i) {
+    if (i != 0) {
+      std::cout << separator;
+    }
+    std::cout << elements.at(i);
+  }
+}
+
 void printCompletedCommand(const std::string &command) {
   const std::string prompt = "$ ";
   // redraw clean line
@@ -339,7 +350,7 @@ std::string readUserInputWithAutoComplete() {
         }
         if (isSecondTab) {
           std::cout << endl;
-          printArrayElement(completions, " ");
+          printSortedArrayElement(completions, " ");
           std::cout << std::endl;
           redraw();
         } else {
