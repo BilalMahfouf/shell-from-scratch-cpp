@@ -229,7 +229,11 @@ std::string readUserInputWithAutoComplete() {
       auto tokens = parser1.lex(str::Trim(buffer));
       std::optional<string> file = std::nullopt;
       std::vector<std::string> tempArray{};
-      if (tokens.size() > 0) {
+
+      // here we check if we are completing a program(ls,cd,..) or program
+      // arguments
+      if (tokens.size() > 1 || buffer.back() == ' ') {
+
         if (tokens.back().type != parser::TokenType::WORD) {
           continue;
         }
@@ -255,6 +259,7 @@ std::string readUserInputWithAutoComplete() {
 
         buffer = tokens.front().value + " " + file.value();
         printBuffer(buffer);
+
         continue;
       }
 
@@ -283,6 +288,7 @@ std::string readUserInputWithAutoComplete() {
         std::cout.flush();
 
         tabPressedBefore = false;
+
         continue;
       }
 
