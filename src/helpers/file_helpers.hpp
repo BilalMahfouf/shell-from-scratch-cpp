@@ -1,6 +1,7 @@
 #pragma once
 #include <filesystem>
 #include <iostream>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -49,4 +50,58 @@ inline std::string getCurrentWorkingDirectory() {
 inline bool isEmpty(const fs::path &file) {
   return fs::exists(file) && fs::file_size(file) == 0;
 }
+enum class EntryType { File, Directory };
+
+struct DirectoryEntry {
+  std::string name;
+  EntryType type;
+};
+inline std::vector<DirectoryEntry> getCurrentDirectoryFilesAndDirectories() {
+  fs::path currentDir = fs::current_path();
+  if (!fs::exists(currentDir) || !fs::is_directory(currentDir))
+    return {};
+
+  DirectoryEntry dirEntry;
+  std::vector<DirectoryEntry> result{};
+
+  for (const auto &entry : fs::directory_iterator(currentDir)) {
+    if (fs::is_directory(entry.path())) {
+      dirEntry = {.name = entry.path().filename().string(),
+                  .type = EntryType::Directory};
+      result.push_back(dirEntry);
+    } else {
+      dirEntry = {.name = entry.path().filename().string(),
+                  .type = EntryType::File};
+
+      result.push_back(dirEntry);
+    }
+  }
+
+  return result;
+}
+inline std::vector<DirectoryEntry> getDirectoryFiles(const std::string &path) {
+  std::vector<DirectoryEntry> result{};
+  fs::path currentDir = fs::path(path);
+
+  if (!fs::exists(currentDir) || !fs::is_directory(currentDir))
+    return {};
+
+  DirectoryEntry dirEntry;
+  for (const auto &entry : fs::directory_iterator(currentDir)) {
+    if (fs::is_directory(entry.path())) {
+      dirEntry = {.name = entry.path().filename().string(),
+                  .type = EntryType::Directory};
+      result.push_back(dirEntry);
+    } else {
+      dirEntry = {.name = entry.path().filename().string(),
+                  .type = EntryType::File};
+
+      result.push_back(dirEntry);
+    }
+    // std::cout << std::endl << entry.path().filename().string() << std::endl;
+  }
+
+  return result;
+}
+
 } // namespace file_helpers

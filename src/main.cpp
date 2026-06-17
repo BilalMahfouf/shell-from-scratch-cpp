@@ -1,15 +1,14 @@
-#include "./tests/parser_tests.hpp"
 #include "Executor.hpp"
 #include "Parser.hpp"
+#include "Terminal.hpp"
+#include "helpers/file_helpers.hpp"
 #include "str.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
-#include <execution>
 #include <filesystem>
 #include <iostream>
 #include <ostream>
-#include <sstream>
 #include <string>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -20,30 +19,16 @@
 #include <unistd.h>
 
 using namespace std;
+parser::Parser parser1;
+Executor executer;
 
-class Terminal {
-private:
-  termios original;
-
-public:
-  void restore() { tcsetattr(STDIN_FILENO, TCSANOW, &original); }
-  void enableRaw() {
-    tcgetattr(STDIN_FILENO, &original);
-
-    termios raw = original;
-    raw.c_lflag &= ~(ICANON | ECHO);
-
-    // apply new settings
-    tcsetattr(STDIN_FILENO, TCSANOW, &raw);
-  }
-};
 std::string readUserCommand() {
   std::string command = "";
   std::cout << "$ ";
   std::getline(std::cin, command);
   return command;
 }
-std::string autoComplete(const std::string &input) {
+std::string builtInAutoComplete(const std::string &input) {
   if (input == "ech") {
     return input + "o ";
   }
@@ -59,146 +44,363 @@ std::string autoComplete(const std::string &input) {
   return input;
 }
 
-std::string readUserInputWithAutoComplete()
-{
-    static std::vector<std::string> history;
-    static int historyIndex = 0;
+std::vector<string> notBuiltInutoComplete(const std::string &input) {
+  const char *env = getenv("PATH");
+  if (!env) {
+    return {};
+  }
+  std::string path = env;
+  std::vector<string> result{};
 
-    Terminal terminal;
-    terminal.enableRaw();
+  auto paths = str::Split(path, ":");
+  for (const auto &dir : paths) {
+    if (!fs::exists(dir) || !fs::is_directory(dir))
+      continue;
 
-    std::string buffer;
-    size_t cursor = 0;
+    for (const auto entry : fs::directory_iterator(dir)) {
+      const auto file = entry.path().filename().string();
+      if (file.starts_with(input) && access(entry.path().c_str(), X_OK) == 0) {
+        result.push_back(file);
+      }
+    }
+  }
+  std::sort(result.begin(), result.end(),
+            [](const std::string &a, const std::string &b) {
+              if (a.size() != b.size())
+                return a.size() < b.size(); // shorter first
+              return a < b;                 // lexicographic tie-break
+            });
+  return result;
+}
 
-    char c;
-    const std::string prompt = "$ ";
+void printArrayElement(const std::vector<string> &elements,
+                       const std::string &separator = " ") {
+  for (size_t i{0}; i < elements.size(); ++i) {
+    if (i != 0) {
+      std::cout << separator;
+    }
+    std::cout << elements.at(i);
+  }
+}
+void printCompletedCommand(const std::string &command) {
+  const std::string prompt = "$ ";
+  // redraw clean line
+  std::cout << "\r" << prompt;
 
-auto redraw = [&](){
+  std::cout << command;
+
+  // IMPORTANT: erase leftover chars from previous longer input
+  std::cout << " \r";
+  std::cout << "\r" << prompt << command;
+
+  std::cout.flush();
+}
+
+std::string longestCommonPrefix(const std::vector<std::string> &elements) {
+  if (elements.empty())
+    return "";
+
+  std::string prefix = elements.front();
+
+  for (size_t i = 1; i < elements.size(); i++) {
+
+    size_t j = 0;
+
+    while (j < prefix.size() && j < elements[i].size() &&
+           prefix[j] == elements[i][j]) {
+      j++;
+    }
+
+    prefix = prefix.substr(0, j);
+  }
+
+  return prefix;
+}
+
+// to do make this function accept a tokenValue instead of all tokens
+std::vector<std::string>
+fileCompletion(const std::vector<parser::Token> &tokens) {
+  if (tokens.size() == 0) {
+    return {};
+  }
+  std::vector<std::string> result{};
+  auto lastToken = tokens.back();
+  if (lastToken.type != parser::TokenType::WORD) {
+    return {};
+  }
+  const auto currentDirectoryFilesAndDirectories =
+      file_helpers::getCurrentDirectoryFilesAndDirectories();
+  if (currentDirectoryFilesAndDirectories.empty()) {
+    return {};
+  }
+  for (const auto &e : currentDirectoryFilesAndDirectories) {
+    if (tokens.size() == 1) {
+      if (e.type == file_helpers::EntryType::Directory) {
+        result.push_back(e.name + "/");
+      } else {
+        result.push_back(e.name + " ");
+      }
+      continue;
+    }
+    if (lastToken.value.front() == e.name.front() &&
+        e.name.contains(lastToken.value)) {
+      if (e.type == file_helpers::EntryType::Directory) {
+        result.push_back(e.name + "/");
+      } else {
+        result.push_back(e.name + " ");
+      }
+    }
+  }
+
+  return result;
+}
+std::vector<std::string> nestedfileCompletion(const std::string &tokenValue) {
+  std::string path = tokenValue;
+  std::string fileToCompleteName = "";
+  std::vector<std::string> result{};
+  for (auto it = tokenValue.rbegin(); it != tokenValue.rend(); ++it) {
+    // me/bilal/fi
+    if (*it == '/') {
+      break;
+    } else {
+      fileToCompleteName.insert(fileToCompleteName.begin(), *it);
+      path.pop_back();
+    }
+  }
+
+  auto files = file_helpers::getDirectoryFiles(path);
+  if (files.empty()) {
+    return {};
+  }
+  for (const auto &file : files) {
+    if (path == tokenValue) {
+      if (file.type == file_helpers::EntryType::Directory) {
+        result.push_back(path + file.name + "/");
+      } else {
+        result.push_back(path + file.name + " ");
+      }
+    } else if (fileToCompleteName.front() == file.name.front() &&
+               file.name.contains(fileToCompleteName)) {
+      if (file.type == file_helpers::EntryType::Directory) {
+        result.push_back(path + file.name + "/");
+      } else {
+        result.push_back(path + file.name + " ");
+      }
+    }
+  }
+
+  return result;
+}
+void printBuffer(const std::string &buffer) {
+  const std::string prompt = "$ ";
+  std::cout << "\r" << prompt << buffer;
+  std::cout.flush();
+}
+std::string readUserInputWithAutoComplete() {
+  static std::vector<std::string> history;
+  static int historyIndex = 0;
+
+  Terminal terminal;
+  terminal.enableRaw();
+
+  std::string buffer;
+  size_t cursor = 0;
+
+  char c;
+  const std::string prompt = "$ ";
+
+  bool tabPressedBefore = false;
+  std::string lastBuffer;
+  std::vector<std::string> lastCompletions;
+
+  auto redraw = [&]() {
     std::cout << "\r" << prompt;
     std::cout << buffer;
-    std::cout << "\033[K"; // clear line after cursor
+    std::cout << "\033[K";
 
-    // move cursor to correct position
     size_t pos = prompt.size() + cursor;
     size_t total = prompt.size() + buffer.size();
 
     if (total > pos)
-    {
-        std::cout << "\033[" << (total - pos) << "D";
-    }
+      std::cout << "\033[" << (total - pos) << "D";
 
     std::cout.flush();
   };
-    std::cout << prompt;
 
-    while (true)
-    {
-        read(STDIN_FILENO, &c, 1);
+  std::cout << prompt << std::flush;
 
-        // ================= ESC (ARROWS) =================
-        if (c == 27)
+  while (true) {
+    read(STDIN_FILENO, &c, 1);
+
+    // ================= ESC (ARROWS + HISTORY) =================
+    if (c == 27) {
+      char seq[2];
+      read(STDIN_FILENO, &seq[0], 1);
+      read(STDIN_FILENO, &seq[1], 1);
+
+      if (seq[0] == '[') {
+        if (seq[1] == 'A') // UP
         {
-            char seq[2];
-            read(STDIN_FILENO, &seq[0], 1);
-            read(STDIN_FILENO, &seq[1], 1);
+          if (!history.empty() && historyIndex > 0)
+            historyIndex--;
 
-            if (seq[0] == '[')
-            {
-                if (seq[1] == 'A') // UP
-                {
-                    if (!history.empty() && historyIndex > 0)
-                        historyIndex--;
+          if (!history.empty())
+            buffer = history[historyIndex];
 
-                    if (!history.empty())
-                        buffer = history[historyIndex];
-
-                    cursor = buffer.size();
-                    redraw();
-                }
-                else if (seq[1] == 'B') // DOWN
-                {
-                    if (!history.empty() && historyIndex < (int)history.size() - 1)
-                        historyIndex++;
-                    else
-                        historyIndex = history.size();
-
-                    if (historyIndex >= (int)history.size())
-                        buffer = "";
-                    else
-                        buffer = history[historyIndex];
-
-                    cursor = buffer.size();
-                    redraw();
-                }
-                else if (seq[1] == 'C') // RIGHT
-                {
-                    if (cursor < buffer.size())
-                        cursor++;
-                    redraw();
-                }
-                else if (seq[1] == 'D') // LEFT
-                {
-                    if (cursor > 0)
-                        cursor--;
-                    redraw();
-                }
-            }
-
-            continue;
-        }
-
-        // ================= ENTER =================
-        if (c == '\n')
+          cursor = buffer.size();
+          redraw();
+        } else if (seq[1] == 'B') // DOWN
         {
-            std::cout << "\n";
+          if (!history.empty() && historyIndex < (int)history.size() - 1)
+            historyIndex++;
+          else
+            historyIndex = history.size();
 
-            if (!buffer.empty())
-            {
-                history.push_back(buffer);
-                historyIndex = history.size();
-            }
+          buffer = (historyIndex >= (int)history.size())
+                       ? ""
+                       : history[historyIndex];
 
-            break;
+          cursor = buffer.size();
+          redraw();
+        } else if (seq[1] == 'C') {
+          if (cursor < buffer.size())
+            cursor++;
+          redraw();
+        } else if (seq[1] == 'D') {
+          if (cursor > 0)
+            cursor--;
+          redraw();
         }
+      }
 
-        // ================= TAB =================
-        if (c == '\t')
-        {
-            std::string temp = autoComplete(buffer);
-
-            if (temp != buffer)
-            {
-                buffer = temp;
-                cursor = buffer.size();
-                redraw();
-            }
-            else
-            {
-                std::cout << "\a";
-            }
-            continue;
-        }
-
-        // ================= BACKSPACE =================
-        if (c == 127)
-        {
-            if (cursor > 0)
-            {
-                buffer.erase(cursor - 1, 1);
-                cursor--;
-                redraw();
-            }
-            continue;
-        }
-
-        // ================= NORMAL CHAR =================
-        buffer.insert(buffer.begin() + cursor, c);
-        cursor++;
-        redraw();
+      continue;
     }
 
-    terminal.restore();
-    return buffer;
+    // ================= ENTER =================
+    if (c == '\n') {
+      std::cout << "\n";
+
+      if (!buffer.empty()) {
+        history.push_back(buffer);
+        historyIndex = history.size();
+      }
+
+      break;
+    }
+
+    // ================= BACKSPACE =================
+    if (c == 127) {
+      if (cursor > 0) {
+        buffer.erase(cursor - 1, 1);
+        cursor--;
+        redraw();
+      }
+
+      tabPressedBefore = false;
+      lastBuffer.clear();
+      lastCompletions.clear();
+      continue;
+    }
+
+    // ================= TAB (FULL MERGED COMPLETION) =================
+    if (c == '\t') {
+      auto tokens = parser1.lex(str::Trim(buffer));
+
+      std::vector<std::string> completions;
+
+      // ---------- FILE / PATH COMPLETION ----------
+      if (!tokens.empty() &&
+          (tokens.size() > 1 || (!buffer.empty() && buffer.back() == ' '))) {
+        if (tokens.back().type != parser::TokenType::WORD)
+          continue;
+
+        if (tokens.back().value.find("/") != std::string::npos)
+          completions = nestedfileCompletion(tokens.back().value);
+        else
+          completions = fileCompletion(tokens);
+
+        if (completions.empty()) {
+          std::cout << "\a";
+          continue;
+        }
+
+        buffer = tokens.front().value + " " + completions.front();
+        cursor = buffer.size();
+        redraw();
+
+        continue;
+      }
+
+      // ---------- BUILTIN ----------
+      std::string builtin = builtInAutoComplete(buffer);
+
+      if (builtin != buffer) {
+        buffer = builtin;
+        cursor = buffer.size();
+        redraw();
+        continue;
+      }
+
+      // ---------- PATH EXECUTABLES ----------
+      completions = notBuiltInutoComplete(buffer);
+
+      if (completions.empty()) {
+        std::cout << "\a";
+        continue;
+      }
+
+      // single match
+      if (completions.size() == 1) {
+        buffer = completions.front() + " ";
+        cursor = buffer.size();
+        redraw();
+        continue;
+      }
+
+      bool same = tabPressedBefore && buffer == lastBuffer &&
+                  completions == lastCompletions;
+
+      // second TAB → list
+      if (same) {
+        std::cout << "\n";
+        printArrayElement(completions, "  ");
+        std::cout << "\n";
+        redraw();
+
+        tabPressedBefore = false;
+        continue;
+      }
+
+      // first TAB → LCP
+      std::string prefix = longestCommonPrefix(completions);
+
+      if (prefix.size() > buffer.size()) {
+        buffer = prefix;
+        cursor = buffer.size();
+        redraw();
+      } else {
+        std::cout << "\a";
+      }
+
+      lastBuffer = buffer;
+      lastCompletions = completions;
+      tabPressedBefore = true;
+
+      continue;
+    }
+
+    // ================= NORMAL CHAR =================
+    buffer.insert(buffer.begin() + cursor, c);
+    cursor++;
+    redraw();
+
+    tabPressedBefore = false;
+    lastBuffer.clear();
+    lastCompletions.clear();
+  }
+
+  terminal.restore();
+  return buffer;
 }
 
 int main() {
@@ -207,15 +409,14 @@ int main() {
   std::cerr << std::unitbuf;
 
   // // // execute();
-  parser::Parser parser;
-  Executor executer;
   bool exit = false;
 
   while (true) {
     // const std::string input = readUserCommand();
     std::string input = readUserInputWithAutoComplete();
-    std::vector<parser::Token> tokens = parser.lex(input);
-    parser::ParsedCommand parsedCommand = parser.parseInput(tokens);
+    input = str::Trim(input);
+    std::vector<parser::Token> tokens = parser1.lex(input);
+    parser::ParsedCommand parsedCommand = parser1.parseInput(tokens);
 
     executer.run(parsedCommand, exit);
     if (exit) {
