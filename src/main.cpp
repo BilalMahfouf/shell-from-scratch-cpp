@@ -200,6 +200,9 @@ std::string readUserInputWithAutoComplete() {
   static std::vector<std::string> history;
   static int historyIndex = 0;
 
+  constexpr char tab = '\t';
+  bool isSecondTab = true;
+
   Terminal terminal;
   terminal.enableRaw();
 
@@ -226,6 +229,7 @@ std::string readUserInputWithAutoComplete() {
 
     std::cout.flush();
   };
+  auto bell = []() { std::cout << "\a"; };
 
   std::cout << prompt << std::flush;
 
@@ -240,6 +244,7 @@ std::string readUserInputWithAutoComplete() {
 
       if (seq[0] == '[') {
         if (seq[1] == 'A') // UP
+        //
         {
           if (!history.empty() && historyIndex > 0)
             historyIndex--;
@@ -303,7 +308,8 @@ std::string readUserInputWithAutoComplete() {
     }
 
     // ================= TAB (FULL MERGED COMPLETION) =================
-    if (c == '\t') {
+    if (c == tab) {
+      isSecondTab = !isSecondTab;
       auto tokens = parser1.lex(str::Trim(buffer));
 
       std::vector<std::string> completions;
@@ -311,6 +317,7 @@ std::string readUserInputWithAutoComplete() {
       // ---------- FILE / PATH COMPLETION ----------
       if (!tokens.empty() &&
           (tokens.size() > 1 || (!buffer.empty() && buffer.back() == ' '))) {
+
         if (tokens.back().type != parser::TokenType::WORD)
           continue;
 
@@ -323,12 +330,21 @@ std::string readUserInputWithAutoComplete() {
           std::cout << "\a";
           continue;
         }
+        if (completions.size() == 1) {
+          buffer = tokens.front().value + " " + completions.front();
+          cursor = buffer.size();
+          redraw();
 
-        buffer = tokens.front().value + " " + completions.front();
-        cursor = buffer.size();
-        redraw();
-
-        continue;
+          continue;
+        }
+        if (isSecondTab) {
+          std::cout << endl;
+          printArrayElement(completions, " ");
+          std::cout << std::endl;
+          redraw();
+        } else {
+          bell();
+        }
       }
 
       // ---------- BUILTIN ----------
