@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <unordered_map>
 #include <vector>
 
 struct ExecResult {
@@ -276,12 +277,26 @@ private:
       std::cerr << "cd: " << path << ": No such file or directory" << std::endl;
     }
   }
-
+  inline static std::unordered_map<std::string, std::string>
+      registerdSpecifications{};
   ExecResult complete(const std::vector<std::string> &args) {
-    if (args.front() == "-p") {
+    if (args.empty()) {
+      return ExecResult::Empty();
+    }
+    auto flag = args.front();
+    if (flag == "-p") {
+      auto it = registerdSpecifications.find(args.back());
+      if (it != registerdSpecifications.end()) {
+        auto outputMessage = "complete -C " + it->second + " " + args.back();
+        return ExecResult::Success(outputMessage);
+      }
       auto err =
           "complete: " + *(args.begin() + 1) + ": no completion specification";
       return ExecResult::Error(err);
+    }
+    if (flag == "-C") {
+      auto value = "\'" + *(args.begin() + 1) + "\'";
+      registerdSpecifications.insert({args.back(), value});
     }
     return ExecResult::Empty();
   }
