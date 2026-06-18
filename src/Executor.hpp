@@ -277,9 +277,18 @@ private:
     }
   }
 
+  ExecResult complete(const std::vector<std::string> &args) {
+    if (args.front() == "-p") {
+      auto err =
+          "complete: " + *(args.begin() + 1) + ": no completion specification";
+      return ExecResult::Error(err);
+    }
+    return ExecResult::Empty();
+  }
   ExecResult executeCommandV2(const parser::Command &command) {
     std::string message = "";
     Command commandEnum = getEnumCommand(str::Trim(command.program));
+    std::vector<std::string> args(command.args.begin() + 1, command.args.end());
 
     switch (commandEnum) {
     case Command::Exit:
@@ -321,8 +330,9 @@ private:
       cd(str::Trim(message));
       return ExecResult::Empty();
     }
+    case Command::Complete:
+      return complete(args);
     case Command::None:
-      std::vector<string> args(command.args.begin() + 1, command.args.end());
       return runProgram(command.program, args);
     }
     return ExecResult::Empty();
