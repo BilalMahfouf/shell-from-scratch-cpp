@@ -44,7 +44,7 @@ struct ExecResult {
 };
 class Executor {
 private:
-  enum class Command { Exit = 0, Echo, Type, Pwd, Cd, None };
+  enum class Command { Exit = 0, Echo, Type, Pwd, Cd, Complete, None };
 
   Command getEnumCommand(const std::string &str) {
     if (str == "exit")
@@ -57,6 +57,8 @@ private:
       return Command::Pwd;
     if (str == "cd")
       return Command::Cd;
+    if (str == "complete")
+      return Command::Complete;
 
     return Command::None;
   }
@@ -96,6 +98,8 @@ private:
       return "cd";
     case Command::None:
       return "";
+    case Command::Complete:
+      return "complete";
     }
     return "";
   }
