@@ -240,42 +240,6 @@ private:
   }
 
   /**
-   * @brief Joins consecutive WORD tokens into a list of arguments.
-   *
-   * This function iterates through a vector of tokens starting from index 0
-   * and collects all consecutive WORD tokens into a string vector.
-   *
-   * It stops parsing when it encounters the first non-WORD token
-   * (such as PIPE, REDIRECT, AND, etc.).
-   *
-   * @return A tuple containing:
-   *         - std::vector<std::string>: collected arguments (WORD tokens)
-   *         - size_t: index of the first non-WORD token (where parsing
-   * stopped)
-   *
-   * Example:
-   * Input tokens:  echo hello world | ls
-   * Output:
-   *   args = ["echo", "hello", "world"]
-   *   index = position of PIPE token
-   */
-  std::tuple<std::vector<std::string>, size_t>
-  joinWords(const std::vector<Token> tokens) {
-    std::vector<std::string> args{};
-    auto index = tokens.size() - 1;
-
-    for (size_t i{0}; i < tokens.size(); ++i) {
-      // this to unsure that if there is a pipe or a redirect it will stop
-      if (tokens.at(i).type != TokenType::WORD) {
-        index = i;
-        break;
-      }
-      args.push_back(tokens.at(i).value);
-    }
-
-    return {args, index};
-  }
-  /**
    * @brief Tries to convert a token into a RedirectionType.
    *
    * If the token is not a redirection operator, returns std::nullopt.
@@ -422,6 +386,43 @@ public:
     }
 
     std::cout << "==============================================\n";
+  }
+
+  /**
+   * @brief Joins consecutive WORD tokens into a list of arguments.
+   *
+   * This function iterates through a vector of tokens starting from index 0
+   * and collects all consecutive WORD tokens into a string vector.
+   *
+   * It stops parsing when it encounters the first non-WORD token
+   * (such as PIPE, REDIRECT, AND, etc.).
+   *
+   * @return A tuple containing:
+   *         - std::vector<std::string>: collected arguments (WORD tokens)
+   *         - size_t: index of the first non-WORD token (where parsing
+   * stopped)
+   *
+   * Example:
+   * Input tokens:  echo hello world | ls
+   * Output:
+   *   args = ["echo", "hello", "world"]
+   *   index = position of PIPE token
+   */
+  static std::tuple<std::vector<std::string>, size_t>
+  joinWords(const std::vector<Token> tokens) {
+    std::vector<std::string> args{};
+    auto index = tokens.size() - 1;
+
+    for (size_t i{0}; i < tokens.size(); ++i) {
+      // this to unsure that if there is a pipe or a redirect it will stop
+      if (tokens.at(i).type != TokenType::WORD) {
+        index = i;
+        break;
+      }
+      args.push_back(tokens.at(i).value);
+    }
+
+    return {args, index};
   }
 };
 

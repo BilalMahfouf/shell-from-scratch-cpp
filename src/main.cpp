@@ -207,6 +207,20 @@ void printBuffer(const std::string &buffer) {
   std::cout << "\r" << prompt << buffer;
   std::cout.flush();
 }
+std::string getBufferFromTokens(const std::vector<parser::Token> &tokens) {
+  // here we skip the last element
+  std::string result = "";
+  for (size_t i{0}; i < tokens.size() - 1; ++i) {
+    if (tokens.at(i).type != parser::TokenType::WORD) {
+      break;
+    }
+    if (i != 0) {
+      result += " ";
+    }
+    result += tokens.at(i).value;
+  }
+  return result;
+}
 std::string readUserInputWithAutoComplete() {
   static std::vector<std::string> history;
   static int historyIndex = 0;
@@ -342,12 +356,20 @@ std::string readUserInputWithAutoComplete() {
           continue;
         }
         if (completions.size() == 1) {
-          buffer = tokens.front().value + " " + completions.front();
+
+          if (tokens.size() < 2) {
+
+            buffer = tokens.front().value + " " + completions.front();
+          } else {
+
+            buffer = getBufferFromTokens(tokens) + " " + completions.front();
+          }
           cursor = buffer.size();
           redraw();
 
           continue;
         }
+
         // for zaki : to understand this code you should know about completions
         // and partial completions with LCP(longet common prefix)
         // and the diffrence between press tab once and twice
@@ -368,10 +390,16 @@ std::string readUserInputWithAutoComplete() {
 
         // first TAB → LCP
         std::string prefix = longestCommonPrefix(completions);
+
         auto bufferTokens = parser1.lex(buffer);
 
-        if (prefix.size() > bufferTokens.at(1).value.size()) {
-          buffer = bufferTokens.front().value + " " + prefix;
+        if (prefix.size() > bufferTokens.back().value.size()) {
+
+          if (bufferTokens.size() == 2) {
+            buffer = bufferTokens.front().value + " " + prefix;
+          } else {
+            buffer = getBufferFromTokens(tokens) + " " + prefix;
+          }
           cursor = buffer.size();
           redraw();
         } else {
