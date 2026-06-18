@@ -82,6 +82,17 @@ void printArrayElement(const std::vector<string> &elements,
     std::cout << elements.at(i);
   }
 }
+void printSortedArrayElement(std::vector<string> elements,
+                             const std::string &separator = " ") {
+  std::sort(elements.begin(), elements.end());
+  for (size_t i{0}; i < elements.size(); ++i) {
+    if (i != 0) {
+      std::cout << separator;
+    }
+    std::cout << elements.at(i);
+  }
+}
+
 void printCompletedCommand(const std::string &command) {
   const std::string prompt = "$ ";
   // redraw clean line
@@ -196,9 +207,26 @@ void printBuffer(const std::string &buffer) {
   std::cout << "\r" << prompt << buffer;
   std::cout.flush();
 }
+std::string getBufferFromTokens(const std::vector<parser::Token> &tokens) {
+  // here we skip the last element
+  std::string result = "";
+  for (size_t i{0}; i < tokens.size() - 1; ++i) {
+    if (tokens.at(i).type != parser::TokenType::WORD) {
+      break;
+    }
+    if (i != 0) {
+      result += " ";
+    }
+    result += tokens.at(i).value;
+  }
+  return result;
+}
 std::string readUserInputWithAutoComplete() {
   static std::vector<std::string> history;
   static int historyIndex = 0;
+
+  constexpr char tab = '\t';
+  bool isSecondTab = true;
 
   Terminal terminal;
   terminal.enableRaw();
@@ -226,6 +254,7 @@ std::string readUserInputWithAutoComplete() {
 
     std::cout.flush();
   };
+  auto bell = []() { std::cout << "\a"; };
 
   std::cout << prompt << std::flush;
 
@@ -240,6 +269,7 @@ std::string readUserInputWithAutoComplete() {
 
       if (seq[0] == '[') {
         if (seq[1] == 'A') // UP
+        //
         {
           if (!history.empty() && historyIndex > 0)
             historyIndex--;
@@ -303,7 +333,8 @@ std::string readUserInputWithAutoComplete() {
     }
 
     // ================= TAB (FULL MERGED COMPLETION) =================
-    if (c == '\t') {
+    if (c == tab) {
+      isSecondTab = !isSecondTab;
       auto tokens = parser1.lex(str::Trim(buffer));
 
       std::vector<std::string> completions;
@@ -311,6 +342,7 @@ std::string readUserInputWithAutoComplete() {
       // ---------- FILE / PATH COMPLETION ----------
       if (!tokens.empty() &&
           (tokens.size() > 1 || (!buffer.empty() && buffer.back() == ' '))) {
+
         if (tokens.back().type != parser::TokenType::WORD)
           continue;
 
@@ -323,10 +355,60 @@ std::string readUserInputWithAutoComplete() {
           std::cout << "\a";
           continue;
         }
+        if (completions.size() == 1) {
 
-        buffer = tokens.front().value + " " + completions.front();
-        cursor = buffer.size();
-        redraw();
+          if (tokens.size() < 2) {
+
+            buffer = tokens.front().value + " " + completions.front();
+          } else {
+
+            buffer = getBufferFromTokens(tokens) + " " + completions.front();
+          }
+          cursor = buffer.size();
+          redraw();
+
+          continue;
+        }
+
+        // for zaki : to understand this code you should know about completions
+        // and partial completions with LCP(longet common prefix)
+        // and the diffrence between press tab once and twice
+
+        bool same = tabPressedBefore && buffer == lastBuffer &&
+                    completions == lastCompletions;
+
+        // second TAB → list
+        if (same) {
+          std::cout << "\n";
+          printSortedArrayElement(completions, "  ");
+          std::cout << "\n";
+          redraw();
+
+          tabPressedBefore = false;
+          continue;
+        }
+
+        // first TAB → LCP
+        std::string prefix = longestCommonPrefix(completions);
+
+        auto bufferTokens = parser1.lex(buffer);
+
+        if (prefix.size() > bufferTokens.back().value.size()) {
+
+          if (bufferTokens.size() == 2) {
+            buffer = bufferTokens.front().value + " " + prefix;
+          } else {
+            buffer = getBufferFromTokens(tokens) + " " + prefix;
+          }
+          cursor = buffer.size();
+          redraw();
+        } else {
+          std::cout << "\a";
+        }
+
+        lastBuffer = buffer;
+        lastCompletions = completions;
+        tabPressedBefore = true;
 
         continue;
       }
