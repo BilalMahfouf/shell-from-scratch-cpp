@@ -309,6 +309,13 @@ private:
     if (flag == "-C") {
       auto value = "\'" + *(args.begin() + 1) + "\'";
       registerdSpecifications.insert({args.back(), value});
+      return ExecResult::Empty();
+    }
+    if (flag == "-r") {
+      auto it = registerdSpecifications.find(args.back());
+      if (it != registerdSpecifications.end()) {
+        registerdSpecifications.erase(it);
+      }
     }
     return ExecResult::Empty();
   }
