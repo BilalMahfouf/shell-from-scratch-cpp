@@ -352,6 +352,7 @@ std::string readUserInputWithAutoComplete() {
           redraw();
           continue;
         }
+        bell();
       }
 
       // ---------- FILE / PATH COMPLETION ----------
