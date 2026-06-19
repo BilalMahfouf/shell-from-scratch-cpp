@@ -2,6 +2,7 @@
 #include "Parser.hpp"
 #include "helpers/file_helpers.hpp"
 #include "str.h"
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <fcntl.h>
@@ -444,20 +445,44 @@ private:
       return complete(args);
 
     case Command::Jobs:
-      return getjobs();
+      return getJobs();
     case Command::None:
       return runProgram(command.program, args);
     }
     return ExecResult::Empty();
   }
 
-  ExecResult getjobs() {
+  ExecResult getJobs() {
     if (jobs.empty()) {
       return ExecResult::Empty();
     }
-    auto output = "[" + std::to_string(jobs.front().id) +
-                  "]+  Running                 " + jobs.front().command + " &";
-    return ExecResult::Success(output);
+    auto setUpMessage = [](int id, std::string command, std::string sep) {
+      return "[" + std::to_string(id) + "]" + sep +
+             "  Running                 " + command + " &";
+    };
+    auto recentJob = jobs.back();
+    std::string recent = setUpMessage(recentJob.id, recentJob.command, "+");
+
+    if (jobs.size() == 1) {
+      return ExecResult::Success(recent);
+    }
+
+    auto secondMostRecentJob = *(jobs.end() - 2);
+    auto secondMostRecent =
+        setUpMessage(secondMostRecentJob.id, secondMostRecentJob.command, "-");
+
+    std::vector<std::string> output{};
+    output.push_back(recent);
+    output.insert(output.begin(), secondMostRecent);
+    if (jobs.size() == 2) {
+      return ExecResult::Success(str::JoinString(output, "\n"));
+    }
+    std::string temp;
+    for (size_t i{0}; i < jobs.size() - 2; ++i) {
+      temp = setUpMessage(jobs.at(i).id, jobs.at(i).command, " ");
+      output.insert(output.begin(), temp);
+    }
+    return ExecResult::Success(str::JoinString(output, "\n"));
   }
   // to do fix the bug if dir don't exist it don't create it
 
