@@ -23,6 +23,9 @@ using namespace std;
 parser::Parser parser1;
 Executor executer;
 
+constexpr char tab = '\t';
+constexpr std::string space = " ";
+
 std::string readUserCommand() {
   std::string command = "";
   std::cout << "$ ";
@@ -226,7 +229,6 @@ std::string readUserInputWithAutoComplete() {
   static std::vector<std::string> history;
   static int historyIndex = 0;
 
-  constexpr char tab = '\t';
   bool isSecondTab = true;
 
   Terminal terminal;
@@ -345,17 +347,28 @@ std::string readUserInputWithAutoComplete() {
         auto [args, noNeeed] = parser1.joinWords(tokens);
 
         auto result = executer.customCompletion(args, buffer, cursor);
-        if (result.has_value()) {
+        if (result.size() == 1) {
           if (args.size() == 1) {
-            buffer = args.front() + " " + result.value();
+            buffer = args.front() + " " + result.front() + space;
           } else {
             std::vector<std::string> temp(args.begin(), args.end() - 1);
             buffer = str::JoinString(temp, " ");
-            buffer += (" " + result.value());
+            buffer += (" " + result.front() + space);
           }
           cursor = buffer.size();
           redraw();
           continue;
+        }
+        if (result.size() > 1) {
+          if (isSecondTab) {
+            std::cout << std::endl;
+            printSortedArrayElement(result);
+            std::cout << std::endl;
+            cursor = buffer.size();
+            redraw();
+            continue;
+          }
+          bell();
         }
         bell();
       }

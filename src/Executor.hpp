@@ -502,12 +502,12 @@ public:
                              const std::string &value) {
     auto result = setenv(name.data(), value.data(), 1);
   }
-  std::optional<std::string>
+  std::vector<std::string>
   customCompletion(const std::vector<std::string> &args,
                    const std::string &compLine, const size_t &compPoint) {
 
     if (args.empty()) {
-      return std::nullopt;
+      return {};
     }
 
     setEnviromentVariable("COMP_LINE", compLine);
@@ -515,7 +515,7 @@ public:
 
     const auto it = registerdSpecifications.find(args.front());
     if (it == registerdSpecifications.end()) {
-      return std::nullopt;
+      return {};
     }
 
     std::string script = it->second;
@@ -541,19 +541,9 @@ public:
 
     auto result = runProgram(script, {argv});
     if (result.output.empty()) {
-      return nullopt;
+      return {};
     }
-
-    // sanitize output safely
-    std::string output = std::move(result.output);
-
-    if (output.back() == '\n') {
-      output.pop_back();
-    }
-
-    output.push_back(' ');
-
-    return output;
+    return str::Split(result.output, "\n");
   }
   void printArrayElement(const std::vector<string> &elements,
                          const std::string &separator = " ") {
