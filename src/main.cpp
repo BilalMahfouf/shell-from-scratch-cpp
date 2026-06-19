@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <locale>
 #include <ostream>
 #include <string>
 #include <sys/types.h>
@@ -340,14 +341,18 @@ std::string readUserInputWithAutoComplete() {
       std::vector<std::string> completions;
 
       // ----------   CUSTOMER COMPLETION -----------
-      if (buffer.back() == ' ') {
+      if (!tokens.empty() && (buffer.back() == ' ' || tokens.size() > 1)) {
+        auto [args, noNeeed] = parser1.joinWords(tokens);
 
-        auto result = executer.customCompletion(str::Trim(buffer));
+        auto result = executer.customCompletion(args);
         if (result.has_value()) {
-          if (result.value().back() == '\n') {
-            result.value().pop_back();
+          if (args.size() == 1) {
+            buffer = args.front() + " " + result.value();
+          } else {
+            std::vector<std::string> temp(args.begin(), args.end() - 1);
+            buffer = str::JoinString(temp, " ");
+            buffer += (" " + result.value());
           }
-          buffer += (result.value());
           cursor = buffer.size();
           redraw();
           continue;
@@ -358,7 +363,6 @@ std::string readUserInputWithAutoComplete() {
       // ---------- FILE / PATH COMPLETION ----------
       if (!tokens.empty() &&
           (tokens.size() > 1 || (!buffer.empty() && buffer.back() == ' '))) {
-
         if (tokens.back().type != parser::TokenType::WORD)
           continue;
 

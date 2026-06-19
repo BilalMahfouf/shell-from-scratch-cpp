@@ -179,7 +179,6 @@ private:
 
     std::optional<std::string> commandPath;
     if (command.starts_with("/") || command.starts_with("./")) {
-      std::cout << "hola";
 
       commandPath = command;
 
@@ -498,20 +497,61 @@ public:
     }
     // ["echo","echo bilal is me",[StdOut,"file.txt"],...,..]
   }
-  std::optional<std::string> customCompletion(const std::string &program) {
+  std::optional<std::string>
+  customCompletion(const std::vector<std::string> &args) {
+    if (args.empty()) {
+      return std::nullopt;
+    }
 
-    auto it = registerdSpecifications.find(program);
-
+    const auto it = registerdSpecifications.find(args.front());
     if (it == registerdSpecifications.end()) {
       return std::nullopt;
     }
-    it->second.pop_back();
-    it->second.erase(it->second.begin());
-    auto result = runProgram(it->second, {it->second});
 
-    if (result.output.back() == '\n') {
-      result.output.pop_back();
+    std::string script = it->second;
+
+    // Strip optional surrounding quotes (safe + simple)
+    if (script.size() >= 2 && script.front() == '\'' && script.back() == '\'') {
+      script = script.substr(1, script.size() - 2);
     }
-    return result.output.append(" ");
+
+    // args layout:
+    // args[0] = command
+    // args.back() = current word
+    // args[size-2] = previous word (if exists)
+
+    const std::string &current = args.back();
+
+    std::string previous;
+    if (args.size() >= 2) {
+      previous = args[args.size() - 2];
+    }
+
+    const std::vector<std::string> argv = {args.front(), current, previous};
+
+    auto result = runProgram(script, {argv});
+    if (result.output.empty()) {
+      return nullopt;
+    }
+
+    // sanitize output safely
+    std::string output = std::move(result.output);
+
+    if (output.back() == '\n') {
+      output.pop_back();
+    }
+
+    output.push_back(' ');
+
+    return output;
+  }
+  void printArrayElement(const std::vector<string> &elements,
+                         const std::string &separator = " ") {
+    for (size_t i{0}; i < elements.size(); ++i) {
+      if (i != 0) {
+        std::cout << separator;
+      }
+      std::cout << elements.at(i);
+    }
   }
 };
