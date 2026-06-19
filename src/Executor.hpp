@@ -2,12 +2,16 @@
 #include "Parser.hpp"
 #include "helpers/file_helpers.hpp"
 #include "str.h"
+#include <cstdio>
 #include <cstdlib>
+#include <fcntl.h>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <optional>
+#include <poll.h>
 #include <sstream>
 #include <string>
 #include <sys/types.h>
@@ -47,10 +51,15 @@ struct Job {
   int id;
   pid_t pid;
   std::string command;
+  int outFd;
+  int errFd;
+  std::string stdoutBuffer;
+  std::string stderrBuffer;
 };
 class Executor {
 private:
-  std::vector<Job> jobs;
+  inline static std::vector<Job> jobs;
+  inline static int prevId = 0;
   enum class Command { Exit = 0, Echo, Type, Pwd, Cd, Complete, Jobs, None };
 
   Command getEnumCommand(const std::string &str) {
@@ -178,7 +187,41 @@ private:
     return argv;
   }
 
-  // there is a bug here it return at the end of the output or error a \n (new
+  // Make fd non-blocking
+  static void setNonBlocking(int fd) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1)
+      throw std::runtime_error("fcntl F_GETFL failed");
+
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
+      throw std::runtime_error("fcntl F_SETFL failed");
+  }
+
+  /*
+   * Reads from pipe without blocking shell.
+   * Returns whatever is available right now.
+   */
+  std::string readPipeNonBlocking(int fd) {
+    std::string result;
+
+    char buffer[4096];
+
+    while (true) {
+      ssize_t n = read(fd, buffer, sizeof(buffer));
+
+      if (n > 0) {
+        result.append(buffer, n);
+      } else if (n == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+        break; // no more data right now
+      } else if (n == 0) {
+        break;
+      } else {
+        throw std::runtime_error("read failed");
+      }
+    }
+
+    return result;
+  } // there is a bug here it return at the end of the output or error a \n (new
   // line)
   ExecResult runProgram(const std::string &command,
                         std::vector<std::string> args,
@@ -209,9 +252,10 @@ private:
 
     if (pid == 0) {
       // CHILD
-
-      dup2(stdoutPipe[1], STDOUT_FILENO);
-      dup2(stderrPipe[1], STDERR_FILENO);
+      if (!isBackgroundJob) {
+        dup2(stdoutPipe[1], STDOUT_FILENO);
+        dup2(stderrPipe[1], STDERR_FILENO);
+      }
 
       close(stdoutPipe[0]);
       close(stdoutPipe[1]);
@@ -234,13 +278,17 @@ private:
       close(stderrPipe[1]);
 
       if (isBackgroundJob) {
-        close(stdoutPipe[0]);
-        close(stderrPipe[0]);
-
+        // close(stdoutPipe[0]);
+        // close(stderrPipe[0]);
+        // setNonBlocking(stdoutPipe[0]);
+        // setNonBlocking(stderrPipe[0]);
+        //
         Job job;
-        job.id = jobs.size() + 1;
+        job.id = ++prevId;
         job.pid = pid;
         job.command = command;
+        job.outFd = stdoutPipe[0];
+        job.errFd = stderrPipe[0];
         jobs.push_back(job);
         return ExecResult::Empty();
       }
@@ -587,6 +635,52 @@ public:
         std::cout << separator;
       }
       std::cout << elements.at(i);
+    }
+  }
+  void checkBackgroundJobs() {
+    for (auto it = jobs.begin(); it != jobs.end();) {
+
+      int status;
+      pid_t result = waitpid(it->pid, &status, WNOHANG);
+
+      // 1. read stdout
+      auto out = readPipeNonBlocking(it->outFd);
+      it->stdoutBuffer += out;
+
+      // 2. read stderr
+      auto err = readPipeNonBlocking(it->errFd);
+      it->stderrBuffer += err;
+
+      // 3. process still running
+      if (result == 0) {
+        ++it;
+        continue;
+      }
+
+      // 4. process finished
+      if (result == it->pid) {
+
+        // final drain (very important)
+        while (true) {
+          auto o = readPipeNonBlocking(it->outFd);
+          auto e = readPipeNonBlocking(it->errFd);
+
+          if (o.empty() && e.empty())
+            break;
+
+          it->stdoutBuffer += o;
+          it->stderrBuffer += e;
+        }
+
+        close(it->outFd);
+        close(it->errFd);
+
+        // now job is fully done
+        std::cout << std::endl << it->stdoutBuffer << std::endl;
+        it = jobs.erase(it);
+      } else {
+        ++it;
+      }
     }
   }
 };
