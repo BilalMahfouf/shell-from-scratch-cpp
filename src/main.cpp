@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <iterator>
 #include <locale>
 #include <ostream>
 #include <string>
@@ -346,31 +347,61 @@ std::string readUserInputWithAutoComplete() {
       if (!tokens.empty() && (buffer.back() == ' ' || tokens.size() > 1)) {
         auto [args, noNeeed] = parser1.joinWords(tokens);
 
-        auto result = executer.customCompletion(args, buffer, cursor);
-        if (result.size() == 1) {
+        completions = executer.customCompletion(args, buffer, cursor);
+        if (completions.empty()) {
+          bell();
+        }
+        if (completions.size() == 1) {
           if (args.size() == 1) {
-            buffer = args.front() + " " + result.front() + space;
+            buffer = args.front() + " " + completions.front() + space;
           } else {
             std::vector<std::string> temp(args.begin(), args.end() - 1);
             buffer = str::JoinString(temp, " ");
-            buffer += (" " + result.front() + space);
+            buffer += (" " + completions.front() + space);
           }
           cursor = buffer.size();
           redraw();
           continue;
         }
-        if (result.size() > 1) {
-          if (isSecondTab) {
-            std::cout << std::endl;
-            printSortedArrayElement(result);
-            std::cout << std::endl;
+
+        bool same = tabPressedBefore && buffer == lastBuffer &&
+                    completions == lastCompletions;
+
+        // second TAB → list
+        if (same) {
+          std::cout << "\n";
+          printSortedArrayElement(completions, "  ");
+          std::cout << "\n";
+          redraw();
+
+          tabPressedBefore = false;
+          continue;
+        }
+
+        // first TAB → LCP
+        std::string prefix = longestCommonPrefix(completions);
+
+        if (!prefix.empty()) {
+          auto bufferTokens = parser1.lex(buffer);
+
+          if (prefix.size() > bufferTokens.back().value.size()) {
+
+            if (bufferTokens.size() == 2) {
+              buffer = bufferTokens.front().value + " " + prefix;
+            } else {
+              buffer = getBufferFromTokens(tokens) + " " + prefix;
+            }
             cursor = buffer.size();
             redraw();
-            continue;
+          } else {
+            bell();
           }
-          bell();
+
+          lastBuffer = buffer;
+          lastCompletions = completions;
+          tabPressedBefore = true;
+          continue;
         }
-        bell();
       }
 
       // ---------- FILE / PATH COMPLETION ----------
