@@ -36,8 +36,8 @@ struct ExecResult {
 
   static ExecResult Empty() { return {"", "", Status::Success, 0}; }
 
-  static ExecResult Create(std::string output, std::string error,
-                           int exitCode) {
+  static ExecResult Create(std::string output, std::string error, int exitCode,
+                           pid_t pid) {
     return {.output = std::move(output),
             .error = std::move(error),
             .exitCode = exitCode};
@@ -50,6 +50,7 @@ struct Job {
 };
 class Executor {
 private:
+  std::vector<Job> jobs;
   enum class Command { Exit = 0, Echo, Type, Pwd, Cd, Complete, Jobs, None };
 
   Command getEnumCommand(const std::string &str) {
@@ -183,9 +184,6 @@ private:
                         std::vector<std::string> args,
                         const bool &isBackgroundJob = false) {
 
-    // std::cout << endl
-    //           << "command: " << command << " args: " << args.at(0) << endl;
-
     std::optional<std::string> commandPath;
     if (command.starts_with("/") || command.starts_with("./")) {
 
@@ -235,6 +233,18 @@ private:
       close(stdoutPipe[1]);
       close(stderrPipe[1]);
 
+      if (isBackgroundJob) {
+        close(stdoutPipe[0]);
+        close(stderrPipe[0]);
+
+        Job job;
+        job.id = jobs.size() + 1;
+        job.pid = pid;
+        job.command = command;
+        jobs.push_back(job);
+        return ExecResult::Empty();
+      }
+
       std::string output;
       std::string error;
 
@@ -257,17 +267,13 @@ private:
       close(stderrPipe[0]);
 
       int status;
-      if (!isBackgroundJob) {
-        waitpid(pid, &status, 0);
-      } else {
-        waitpid(pid, &status, WNOHANG);
-      }
+      waitpid(pid, &status, 0);
 
       if (WIFEXITED(status)) {
 
         int code = WEXITSTATUS(status);
 
-        return ExecResult::Create(output, error, code);
+        return ExecResult::Create(output, error, code, pid);
       }
 
       return ExecResult::Exit();
@@ -336,6 +342,15 @@ private:
     std::string message = "";
     Command commandEnum = getEnumCommand(str::Trim(command.program));
     std::vector<std::string> args(command.args.begin() + 1, command.args.end());
+
+    if (command.args.back() == "&") {
+      args.pop_back();
+      auto result = runProgram(command.program, args, true);
+      auto output = "[" + std::to_string(jobs.back().id) + "] " +
+                    std::to_string(jobs.back().pid);
+      result.output = output;
+      return result;
+    }
 
     switch (commandEnum) {
     case Command::Exit:
