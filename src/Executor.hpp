@@ -286,7 +286,7 @@ private:
         Job job;
         job.id = ++prevId;
         job.pid = pid;
-        job.command = command;
+        job.command = command + " " + str::JoinString(args, " ");
         job.outFd = stdoutPipe[0];
         job.errFd = stderrPipe[0];
         jobs.push_back(job);
@@ -442,12 +442,23 @@ private:
     }
     case Command::Complete:
       return complete(args);
+
+    case Command::Jobs:
+      return getjobs();
     case Command::None:
       return runProgram(command.program, args);
     }
     return ExecResult::Empty();
   }
 
+  ExecResult getjobs() {
+    if (jobs.empty()) {
+      return ExecResult::Empty();
+    }
+    auto output = "[" + std::to_string(jobs.front().id) +
+                  "]+  Running                 " + jobs.front().command + " &";
+    return ExecResult::Success(output);
+  }
   // to do fix the bug if dir don't exist it don't create it
 
   void createFileIfDontExist(const std::string file) {

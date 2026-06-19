@@ -558,7 +558,7 @@ int main() {
   bool exit = false;
 
   while (true) {
-    executer.checkBackgroundJobs();
+    // executer.checkBackgroundJobs();
     std::string input = readUserInputWithAutoComplete();
     input = str::Trim(input);
     std::vector<parser::Token> tokens = parser1.lex(input);
