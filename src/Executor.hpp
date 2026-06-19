@@ -43,9 +43,14 @@ struct ExecResult {
             .exitCode = exitCode};
   }
 };
+struct Job {
+  int id;
+  pid_t pid;
+  std::string command;
+};
 class Executor {
 private:
-  enum class Command { Exit = 0, Echo, Type, Pwd, Cd, Complete, None };
+  enum class Command { Exit = 0, Echo, Type, Pwd, Cd, Complete, Jobs, None };
 
   Command getEnumCommand(const std::string &str) {
     if (str == "exit")
@@ -60,7 +65,8 @@ private:
       return Command::Cd;
     if (str == "complete")
       return Command::Complete;
-
+    if (str == "jobs")
+      return Command::Jobs;
     return Command::None;
   }
 
@@ -101,6 +107,8 @@ private:
       return "";
     case Command::Complete:
       return "complete";
+    case Command::Jobs:
+      return "jobs";
     }
     return "";
   }
@@ -172,7 +180,8 @@ private:
   // there is a bug here it return at the end of the output or error a \n (new
   // line)
   ExecResult runProgram(const std::string &command,
-                        std::vector<std::string> args) {
+                        std::vector<std::string> args,
+                        const bool &isBackgroundJob = false) {
 
     // std::cout << endl
     //           << "command: " << command << " args: " << args.at(0) << endl;
@@ -248,7 +257,11 @@ private:
       close(stderrPipe[0]);
 
       int status;
-      waitpid(pid, &status, 0);
+      if (!isBackgroundJob) {
+        waitpid(pid, &status, 0);
+      } else {
+        waitpid(pid, &status, WNOHANG);
+      }
 
       if (WIFEXITED(status)) {
 
