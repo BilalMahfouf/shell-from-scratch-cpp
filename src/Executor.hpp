@@ -497,11 +497,21 @@ public:
     }
     // ["echo","echo bilal is me",[StdOut,"file.txt"],...,..]
   }
+
+  void setEnviromentVariable(const std::string &name,
+                             const std::string &value) {
+    auto result = setenv(name.data(), value.data(), 1);
+  }
   std::optional<std::string>
-  customCompletion(const std::vector<std::string> &args) {
+  customCompletion(const std::vector<std::string> &args,
+                   const std::string &compLine, const size_t &compPoint) {
+
     if (args.empty()) {
       return std::nullopt;
     }
+
+    setEnviromentVariable("COMP_LINE", compLine);
+    setEnviromentVariable("COMP_POINT", std::to_string(compPoint));
 
     const auto it = registerdSpecifications.find(args.front());
     if (it == registerdSpecifications.end()) {

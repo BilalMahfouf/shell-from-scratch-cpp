@@ -344,7 +344,7 @@ std::string readUserInputWithAutoComplete() {
       if (!tokens.empty() && (buffer.back() == ' ' || tokens.size() > 1)) {
         auto [args, noNeeed] = parser1.joinWords(tokens);
 
-        auto result = executer.customCompletion(args);
+        auto result = executer.customCompletion(args, buffer, cursor);
         if (result.has_value()) {
           if (args.size() == 1) {
             buffer = args.front() + " " + result.value();
