@@ -156,6 +156,11 @@ private:
     std::vector<char *> argv{};
     argv.push_back(command.data());
 
+    if (tokens.empty()) {
+      argv.push_back(nullptr);
+      return argv;
+    }
+
     for (auto &token : tokens) {
       argv.push_back(token.data());
     }
@@ -163,6 +168,7 @@ private:
     argv.push_back(nullptr);
     return argv;
   }
+
   // there is a bug here it return at the end of the output or error a \n (new
   // line)
   ExecResult runProgram(const std::string &command,
@@ -171,10 +177,18 @@ private:
     // std::cout << endl
     //           << "command: " << command << " args: " << args.at(0) << endl;
 
-    auto commandPath = findExecutable(command);
+    std::optional<std::string> commandPath;
+    if (command.starts_with("/") || command.starts_with("./")) {
+      std::cout << "hola";
 
-    if (!commandPath.has_value()) {
-      return ExecResult::Error(command + ": command not found");
+      commandPath = command;
+
+    } else {
+      commandPath = findExecutable(command);
+
+      if (!commandPath.has_value()) {
+        return ExecResult::Error(command + ": command not found");
+      }
     }
 
     int stdoutPipe[2];
@@ -277,8 +291,7 @@ private:
       std::cerr << "cd: " << path << ": No such file or directory" << std::endl;
     }
   }
-  inline static std::unordered_map<std::string, std::string>
-      registerdSpecifications{};
+
   ExecResult complete(const std::vector<std::string> &args) {
     if (args.empty()) {
       return ExecResult::Empty();
@@ -424,6 +437,8 @@ private:
     }
     return;
   }
+  inline static std::unordered_map<std::string, std::string>
+      registerdSpecifications{};
 
 public:
   void run(const parser::ParsedCommand &parsedcommand, bool &exit) {
@@ -482,5 +497,21 @@ public:
       }
     }
     // ["echo","echo bilal is me",[StdOut,"file.txt"],...,..]
+  }
+  std::optional<std::string> customCompletion(const std::string &program) {
+
+    auto it = registerdSpecifications.find(program);
+
+    if (it == registerdSpecifications.end()) {
+      return std::nullopt;
+    }
+    it->second.pop_back();
+    it->second.erase(it->second.begin());
+    auto result = runProgram(it->second, {it->second});
+
+    if (result.output.back() == '\n') {
+      result.output.pop_back();
+    }
+    return result.output.append(" ");
   }
 };

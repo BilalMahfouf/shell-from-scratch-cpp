@@ -339,6 +339,21 @@ std::string readUserInputWithAutoComplete() {
 
       std::vector<std::string> completions;
 
+      // ----------   CUSTOMER COMPLETION -----------
+      if (buffer.back() == ' ') {
+
+        auto result = executer.customCompletion(str::Trim(buffer));
+        if (result.has_value()) {
+          if (result.value().back() == '\n') {
+            result.value().pop_back();
+          }
+          buffer += (result.value());
+          cursor = buffer.size();
+          redraw();
+          continue;
+        }
+      }
+
       // ---------- FILE / PATH COMPLETION ----------
       if (!tokens.empty() &&
           (tokens.size() > 1 || (!buffer.empty() && buffer.back() == ' '))) {
