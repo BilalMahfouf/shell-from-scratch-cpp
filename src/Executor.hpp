@@ -2,6 +2,7 @@
 #include "Parser.hpp"
 #include "helpers/file_helpers.hpp"
 #include "str.h"
+#include <algorithm>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -56,6 +57,8 @@ struct Job {
   int errFd;
   std::string stdoutBuffer;
   std::string stderrBuffer;
+
+  bool operator==(const Job &other) const { return pid == other.pid; }
 };
 class Executor {
 private:
@@ -452,25 +455,68 @@ private:
     return ExecResult::Empty();
   }
 
-  ExecResult getJobs() {
-    if (jobs.empty()) {
-      return ExecResult::Empty();
+  bool isJobCompleted(const Job &job) {
+    int status;
+    pid_t p = waitpid(job.pid, &status, WNOHANG);
+
+    if (p == job.pid) {
+      return true;
     }
+    return false;
+  }
+  inline static std::vector<Job> jobsToReap{};
+  void cleanJobs() {
+    auto reapJob = [&](const Job &jobToReap) {
+      auto it = std::find(jobs.begin(), jobs.end(), jobToReap);
+      if (it != jobs.end()) {
+        jobs.erase(it);
+      }
+    };
+    for (const auto &j : jobsToReap) {
+      reapJob(j);
+    }
+  };
+
+  ExecResult getJobs() {
+
     auto setUpMessage = [](int id, std::string command, std::string sep) {
       return "[" + std::to_string(id) + "]" + sep +
              "  Running                 " + command + " &";
     };
+    auto getFinishedJobTerminalOutput = [&](const Job &job) {
+      std::string message = "[" + std::to_string(job.id) +
+                            "]+  Done                 " + job.command;
+      return message;
+    };
+
+    if (!jobsToReap.empty()) {
+      cleanJobs();
+    }
+    if (jobs.empty()) {
+      return ExecResult::Empty();
+    }
     auto recentJob = jobs.back();
-    std::string recent = setUpMessage(recentJob.id, recentJob.command, "+");
+    std::string recent;
+    if (isJobCompleted(jobs.back())) {
+      recent = getFinishedJobTerminalOutput(jobs.back());
+      jobsToReap.push_back(jobs.back());
+    } else {
+      recent = setUpMessage(recentJob.id, recentJob.command, "+");
+    }
 
     if (jobs.size() == 1) {
       return ExecResult::Success(recent);
     }
 
     auto secondMostRecentJob = *(jobs.end() - 2);
-    auto secondMostRecent =
-        setUpMessage(secondMostRecentJob.id, secondMostRecentJob.command, "-");
-
+    std::string secondMostRecent = "";
+    if (isJobCompleted(secondMostRecentJob)) {
+      secondMostRecent = getFinishedJobTerminalOutput(secondMostRecentJob);
+      jobsToReap.push_back(secondMostRecentJob);
+    } else {
+      secondMostRecent = setUpMessage(secondMostRecentJob.id,
+                                      secondMostRecentJob.command, "-");
+    }
     std::vector<std::string> output{};
     output.push_back(recent);
     output.insert(output.begin(), secondMostRecent);
@@ -478,8 +524,15 @@ private:
       return ExecResult::Success(str::JoinString(output, "\n"));
     }
     std::string temp;
+    std::vector<int> indexOfJobsToReap{};
     for (size_t i{0}; i < jobs.size() - 2; ++i) {
-      temp = setUpMessage(jobs.at(i).id, jobs.at(i).command, " ");
+      if (isJobCompleted(jobs.at(i))) {
+        temp = getFinishedJobTerminalOutput(jobs.at(i));
+        jobsToReap.push_back(jobs.at(i));
+      } else {
+        temp = setUpMessage(jobs.at(i).id, jobs.at(i).command, " ");
+      }
+
       output.insert(output.begin(), temp);
     }
     return ExecResult::Success(str::JoinString(output, "\n"));
