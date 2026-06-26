@@ -524,17 +524,26 @@ private:
     if (args.empty()) {
       return ExecResult::Success(getHistoryMessage());
     }
-
+    fs::path path;
     if (args.front() == "-r") {
-      auto path = args.back();
+      path = args.back();
       auto data = file_helpers::readDataFromFile(path);
       if (!data.empty()) {
         history.insert(history.end(), data.begin(), data.end());
       }
       return ExecResult::Empty();
-    } else {
-      return ExecResult::Success(getHistoryMessage());
     }
+    if (args.front() == "-w") {
+      path = args.back();
+      file_helpers::writeDataTofile(path, history);
+      return ExecResult::Empty();
+    }
+    if (args.front() == "-a") {
+      path = args.back();
+      file_helpers::appendDataTofile(path, history);
+      return ExecResult::Empty();
+    }
+    return ExecResult::Success(getHistoryMessage());
   }
 
   int getHistorySize(const std::string &sizeStr) {

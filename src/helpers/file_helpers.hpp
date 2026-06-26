@@ -106,7 +106,7 @@ inline std::vector<DirectoryEntry> getDirectoryFiles(const std::string &path) {
   return result;
 }
 
-std::vector<std::string> readDataFromFile(const fs::path &path) {
+inline std::vector<std::string> readDataFromFile(const fs::path &path) {
   std::ifstream file(path);
 
   std::string line;
@@ -118,6 +118,32 @@ std::vector<std::string> readDataFromFile(const fs::path &path) {
     }
   }
   return result;
+}
+inline void writeDataTofile(const fs::path &path,
+                            std::vector<std::string> &data) {
+  std::ofstream out(path);
+  if (!out) {
+    throw std::runtime_error("Cannot open file: " + path.string());
+  }
+
+  for (const auto &line : data) {
+    out << line;
+    out << std::endl;
+  }
+  out.close();
+}
+inline void appendDataTofile(const fs::path &path,
+                             std::vector<std::string> &data) {
+  std::ofstream out(path);
+  if (!out) {
+    throw std::runtime_error("Cannot open file: " + path.string());
+  }
+
+  for (const auto &line : data) {
+    out << line;
+    out << std::endl;
+  }
+  out.close();
 }
 
 } // namespace file_helpers
