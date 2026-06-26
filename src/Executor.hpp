@@ -447,6 +447,14 @@ private:
     std::reverse(newResult.begin(), newResult.end());
     return str::JoinString(newResult, "\n");
   }
+  ExecResult declare(const std::vector<std::string> &args) {
+    auto varName = args.back();
+    if (args.front() == "-p") {
+      auto message = "declare: " + varName + ": not found";
+      return ExecResult::Success(message);
+    }
+    return ExecResult::Empty();
+  }
   ExecResult
   executeCommandV2(const parser::Command &command,
                    const std::vector<parser::Command> &commands = {}) {
@@ -514,6 +522,8 @@ private:
     case Command::History: {
       return getHistory(args);
     }
+    case Command::Declare:
+      return declare(args);
     case Command::None:
       return runProgram(command.program, args);
     }
