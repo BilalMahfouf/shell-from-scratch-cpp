@@ -10,6 +10,7 @@
 #include <iostream>
 #include <iterator>
 #include <locale>
+#include <numbers>
 #include <ostream>
 #include <string>
 #include <sys/types.h>
@@ -318,7 +319,6 @@ std::string readUserInputWithAutoComplete() {
         history.push_back(buffer);
         historyIndex = history.size();
       }
-
       break;
     }
 

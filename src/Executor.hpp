@@ -403,7 +403,7 @@ private:
       result.output = output;
       return result;
     }
-
+    commandType = commandEnum;
     switch (commandEnum) {
     case Command::Exit:
       return ExecResult::Exit();
@@ -454,6 +454,7 @@ private:
     }
     return ExecResult::Empty();
   }
+  inline static Command commandType;
 
   bool isJobCompleted(const Job &job) {
     int status;
@@ -465,34 +466,21 @@ private:
     return false;
   }
   inline static std::vector<Job> jobsToReap{};
-  void cleanJobs() {
-    auto reapJob = [&](const Job &jobToReap) {
-      auto it = std::find(jobs.begin(), jobs.end(), jobToReap);
-      if (it != jobs.end()) {
-        jobs.erase(it);
-      }
-    };
-    for (const auto &j : jobsToReap) {
-      reapJob(j);
-    }
+  std::string getFinishedJobTerminalOutput(const Job &job,
+                                           const std::string sep) {
+    std::string message = "[" + std::to_string(job.id) + "]" + sep +
+                          "  Done                 " + job.command;
+    return str::Trim(message);
   };
-
   ExecResult getJobs() {
 
     auto setUpMessage = [](int id, std::string command, std::string sep) {
       return "[" + std::to_string(id) + "]" + sep +
              "  Running                 " + command + " &";
     };
-    auto getFinishedJobTerminalOutput = [&](const Job &job,
-                                            const std::string sep) {
-      std::string message = "[" + std::to_string(job.id) + "]" + sep +
-                            "  Done                 " + job.command;
-      return message;
-    };
 
-    if (!jobsToReap.empty()) {
-      cleanJobs();
-    }
+    cleanJobs();
+
     if (jobs.empty()) {
       return ExecResult::Empty();
     }
@@ -598,13 +586,36 @@ private:
   }
 
   void printOutput(std::optional<string> output) {
+    auto clear = [&]() {
+      addJobsToReap();
+      auto r = getCompletedJobsTerminalOutput();
+      if (!r.empty()) {
+        if (commandType == Command::Jobs) {
+          cleanJobs();
+          return;
+        }
+        auto message = str::JoinString(r, "\n");
+        if (message.front() == '\n') {
+          return;
+        }
+        if (output.value().back() == '\n') {
+          std::cout << message << std::endl;
+        } else {
+          std::cout << message << std::endl;
+        }
+        cleanJobs();
+      }
+    };
+
     if (output.has_value()) {
       if (output->back() == '\n') {
 
         std::cout << output.value();
+        clear();
         return;
       }
       std::cout << output.value() << endl;
+      clear();
       return;
     }
     return;
@@ -770,6 +781,51 @@ public:
         it = jobs.erase(it);
       } else {
         ++it;
+      }
+    }
+  }
+  void cleanJobs() {
+    if (jobsToReap.empty()) {
+      return;
+    }
+
+    for (const auto &j : jobsToReap) {
+      auto it = std::find(jobs.begin(), jobs.end(), j);
+      if (it != jobs.end()) {
+        jobs.erase(it);
+      }
+    }
+    jobsToReap.clear();
+    return;
+  }
+  std::vector<std::string> getCompletedJobsTerminalOutput() {
+    if (jobsToReap.empty())
+      return {};
+    std::vector<std::string> result{};
+
+    result.push_back(getFinishedJobTerminalOutput(jobsToReap.back(), "+"));
+    if (jobsToReap.size() == 1) {
+      return result;
+    }
+    result.insert(result.begin(),
+                  getFinishedJobTerminalOutput(*(jobsToReap.end() - 2), "-"));
+    if (jobsToReap.size() == 2) {
+      return result;
+    }
+
+    for (size_t i{0}; i < jobsToReap.size() - 2; ++i) {
+      result.insert(result.begin(),
+                    getFinishedJobTerminalOutput(jobsToReap.at(i), " "));
+    }
+    return result;
+  }
+  void addJobsToReap() {
+    if (jobs.empty())
+      return;
+
+    for (const auto &j : jobs) {
+      if (isJobCompleted(j)) {
+        jobsToReap.push_back(j);
       }
     }
   }
