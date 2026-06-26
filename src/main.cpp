@@ -227,7 +227,8 @@ std::string getBufferFromTokens(const std::vector<parser::Token> &tokens) {
   }
   return result;
 }
-static std::vector<std::string> history;
+static std::vector<std::string> history{};
+static std::vector<std::string> prevHistory{};
 static int historyIndex = 0;
 
 std::string readUserInputWithAutoComplete() {
@@ -563,6 +564,12 @@ void writeHistoryToHistoryFile() {
   if (env == nullptr)
     return;
   file_helpers::writeDataTofile(env, history);
+}
+void appendHistoryToHistoryFile() {
+  const char *env = getenv("HISTFILE");
+  if (env == nullptr)
+    return;
+  file_helpers::appendDataTofile(env, history);
 }
 
 int main() {
