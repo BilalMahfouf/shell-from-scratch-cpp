@@ -8,6 +8,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <iterator>
+#include <locale>
+#include <numbers>
 #include <ostream>
 #include <string>
 #include <sys/types.h>
@@ -21,6 +24,9 @@
 using namespace std;
 parser::Parser parser1;
 Executor executer;
+
+constexpr char tab = '\t';
+constexpr std::string space = " ";
 
 std::string readUserCommand() {
   std::string command = "";
@@ -225,7 +231,6 @@ std::string readUserInputWithAutoComplete() {
   static std::vector<std::string> history;
   static int historyIndex = 0;
 
-  constexpr char tab = '\t';
   bool isSecondTab = true;
 
   Terminal terminal;
@@ -314,7 +319,6 @@ std::string readUserInputWithAutoComplete() {
         history.push_back(buffer);
         historyIndex = history.size();
       }
-
       break;
     }
 
@@ -339,10 +343,70 @@ std::string readUserInputWithAutoComplete() {
 
       std::vector<std::string> completions;
 
+      // ----------   CUSTOMER COMPLETION -----------
+      if (!tokens.empty() && (buffer.back() == ' ' || tokens.size() > 1)) {
+        auto [args, noNeeed] = parser1.joinWords(tokens);
+
+        completions = executer.customCompletion(args, buffer, cursor);
+        if (completions.empty()) {
+          bell();
+        }
+        if (completions.size() == 1) {
+          if (args.size() == 1) {
+            buffer = args.front() + " " + completions.front() + space;
+          } else {
+            std::vector<std::string> temp(args.begin(), args.end() - 1);
+            buffer = str::JoinString(temp, " ");
+            buffer += (" " + completions.front() + space);
+          }
+          cursor = buffer.size();
+          redraw();
+          continue;
+        }
+
+        bool same = tabPressedBefore && buffer == lastBuffer &&
+                    completions == lastCompletions;
+
+        // second TAB → list
+        if (same) {
+          std::cout << "\n";
+          printSortedArrayElement(completions, "  ");
+          std::cout << "\n";
+          redraw();
+
+          tabPressedBefore = false;
+          continue;
+        }
+
+        // first TAB → LCP
+        std::string prefix = longestCommonPrefix(completions);
+
+        if (!prefix.empty()) {
+          auto bufferTokens = parser1.lex(buffer);
+
+          if (prefix.size() > bufferTokens.back().value.size()) {
+
+            if (bufferTokens.size() == 2) {
+              buffer = bufferTokens.front().value + " " + prefix;
+            } else {
+              buffer = getBufferFromTokens(tokens) + " " + prefix;
+            }
+            cursor = buffer.size();
+            redraw();
+          } else {
+            bell();
+          }
+
+          lastBuffer = buffer;
+          lastCompletions = completions;
+          tabPressedBefore = true;
+          continue;
+        }
+      }
+
       // ---------- FILE / PATH COMPLETION ----------
       if (!tokens.empty() &&
           (tokens.size() > 1 || (!buffer.empty() && buffer.back() == ' '))) {
-
         if (tokens.back().type != parser::TokenType::WORD)
           continue;
 
@@ -494,7 +558,7 @@ int main() {
   bool exit = false;
 
   while (true) {
-    // const std::string input = readUserCommand();
+    // executer.checkBackgroundJobs();
     std::string input = readUserInputWithAutoComplete();
     input = str::Trim(input);
     std::vector<parser::Token> tokens = parser1.lex(input);
