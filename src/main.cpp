@@ -558,6 +558,12 @@ void loadHistory() {
     return;
   history = data;
 }
+void writeHistoryToHistoryFile() {
+  const char *env = getenv("HISTFILE");
+  if (env == nullptr)
+    return;
+  file_helpers::writeDataTofile(env, history);
+}
 
 int main() {
   // Flush after every std::cout / std:cerr
@@ -577,9 +583,11 @@ int main() {
 
     executer.run(parsedCommand, exit, history);
     if (exit) {
+      writeHistoryToHistoryFile();
       std::cout << endl << "---------------------------------" << endl;
       std::cout << "good by";
       std::cout << endl << "---------------------------------" << endl;
+
       break;
     }
   }
