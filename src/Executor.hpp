@@ -771,8 +771,28 @@ public:
   void run(const parser::ParsedCommand &parsedcommand, bool &exit) {
 
     std::string input = "";
+    auto type = getEnumCommand(parsedcommand.commands.back().program);
+
     for (size_t i{0}; i < parsedcommand.commands.size(); ++i) {
       const auto &command = parsedcommand.commands[i];
+      if (parsedcommand.commands.size() > 1) {
+        auto type = getEnumCommand(parsedcommand.commands.back().program);
+        if (type != Command::None) {
+          auto output = executeCommandV2(parsedcommand.commands.back());
+          if (output.status == ExecResult::Status::Exit) {
+            exit = true;
+            return;
+          }
+          if (!str::isNullOrWhiteSpace(output.output)) {
+            printOutput(output.output);
+          }
+
+          if (!str::isNullOrWhiteSpace(output.error)) {
+            printOutput(output.error);
+          }
+          return;
+        }
+      }
 
       if (command.redirections.empty()) {
 
