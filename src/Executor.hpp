@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <fcntl.h>
 #include <filesystem>
 #include <format>
@@ -421,14 +422,23 @@ private:
     }
     return ExecResult::Empty();
   }
-  std::string getTerminalHistory() {
+  std::string getTerminalHistory(int size = 0) {
     std::string line = "";
     std::vector<std::string> result{};
     for (size_t i{0}; i < history.size(); ++i) {
       line = "\t" + std::to_string(i + 1) + "  " + history.at(i);
       result.push_back(line);
     }
-    return str::JoinString(result, "\n");
+    if (size == 0 || size > history.size()) {
+      return str::JoinString(result, "\n");
+    }
+    std::reverse(result.begin(), result.end());
+    std::vector<std::string> newResult{};
+    for (size_t i{0}; i < size; ++i) {
+      newResult.push_back(result.at(i));
+    }
+    std::reverse(newResult.begin(), newResult.end());
+    return str::JoinString(newResult, "\n");
   }
   ExecResult
   executeCommandV2(const parser::Command &command,
@@ -495,13 +505,30 @@ private:
     case Command::Jobs:
       return getJobs();
     case Command::History: {
-      auto result = getTerminalHistory();
+      int sizeOfHistory = 0;
+      if (!args.empty()) {
+        sizeOfHistory = getHistorySize(args.front());
+      }
+      auto result = getTerminalHistory(sizeOfHistory);
       return ExecResult::Success(result);
     }
     case Command::None:
       return runProgram(command.program, args);
     }
     return ExecResult::Empty();
+  }
+
+  int getHistorySize(const std::string &sizeStr) {
+    if (str::isNullOrWhiteSpace(sizeStr)) {
+      return 0;
+    }
+    int result = 0;
+    try {
+      result = std::stoi(sizeStr);
+    } catch (const std::exception &e) {
+      return 0;
+    }
+    return result;
   }
   inline static Command commandType;
 
