@@ -227,10 +227,10 @@ std::string getBufferFromTokens(const std::vector<parser::Token> &tokens) {
   }
   return result;
 }
-std::string readUserInputWithAutoComplete() {
-  static std::vector<std::string> history;
-  static int historyIndex = 0;
+static std::vector<std::string> history;
+static int historyIndex = 0;
 
+std::string readUserInputWithAutoComplete() {
   bool isSecondTab = true;
 
   Terminal terminal;

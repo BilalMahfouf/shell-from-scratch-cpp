@@ -64,7 +64,17 @@ class Executor {
 private:
   inline static std::vector<Job> jobs;
   inline static int prevId = 0;
-  enum class Command { Exit = 0, Echo, Type, Pwd, Cd, Complete, Jobs, None };
+  enum class Command {
+    Exit = 0,
+    Echo,
+    Type,
+    Pwd,
+    Cd,
+    Complete,
+    Jobs,
+    History,
+    None
+  };
 
   Command getEnumCommand(const std::string &str) {
     if (str == "exit")
@@ -81,6 +91,8 @@ private:
       return Command::Complete;
     if (str == "jobs")
       return Command::Jobs;
+    if (str == "history")
+      return Command::History;
     return Command::None;
   }
 
@@ -123,6 +135,8 @@ private:
       return "complete";
     case Command::Jobs:
       return "jobs";
+    case Command::History:
+      return "history";
     }
     return "";
   }
