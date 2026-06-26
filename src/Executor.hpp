@@ -288,7 +288,7 @@ private:
         // setNonBlocking(stderrPipe[0]);
         //
         Job job;
-        job.id = ++prevId;
+        job.id = jobs.size() + 1;
         job.pid = pid;
         job.command = command + " " + str::JoinString(args, " ");
         job.outFd = stdoutPipe[0];
