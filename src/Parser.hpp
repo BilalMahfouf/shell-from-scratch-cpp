@@ -292,6 +292,21 @@ public:
     std::vector<Token> tokens = getTokens(input);
     return tokens;
   }
+  std::vector<std::vector<Token>>
+  splitByPipe(const std::vector<Token> &tokens) {
+    std::vector<std::vector<Token>> result{};
+    std::vector<Token> t;
+    for (const auto &token : tokens) {
+      if (token.type == TokenType::PIPE) {
+        result.push_back(t);
+        t.clear();
+        continue;
+      }
+      t.push_back(token);
+    }
+    result.push_back(t);
+    return result;
+  }
   ParsedCommand parseInput(const std::vector<Token> tokens) {
     ParsedCommand parsedCommand;
     std::vector<Command> commands;
@@ -307,6 +322,19 @@ public:
       parsedCommand.commands = commands;
       return parsedCommand;
     }
+    if (tokens.at(index).type == TokenType::PIPE) {
+      commands.clear();
+      auto result = splitByPipe(tokens);
+      for (const auto &r : result) {
+        auto [args, index] = joinWords(r);
+        command.args = args;
+        command.program = args.at(0);
+        commands.push_back(command);
+      }
+      parsedCommand.commands = commands;
+      return parsedCommand;
+    }
+
     auto redirectionType = getRedirectionType(tokens.at(index).value);
     if (redirectionType.has_value()) {
       Redirection redirect{.type = redirectionType.value()};

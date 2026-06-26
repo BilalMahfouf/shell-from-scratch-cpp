@@ -174,17 +174,24 @@ private:
   }
 
   std::vector<char *> getArgsForExecvp(std::string command,
-                                       std::vector<string> &tokens) {
+                                       std::vector<string> &tokens,
+                                       std::string input = "") {
     std::vector<char *> argv{};
     argv.push_back(command.data());
 
     if (tokens.empty()) {
       argv.push_back(nullptr);
+      if (!str::isNullOrWhiteSpace(input)) {
+        argv.push_back(input.data());
+      }
       return argv;
     }
 
     for (auto &token : tokens) {
       argv.push_back(token.data());
+    }
+    if (!input.empty()) {
+      argv.push_back(input.data());
     }
 
     argv.push_back(nullptr);
@@ -229,7 +236,8 @@ private:
   // line)
   ExecResult runProgram(const std::string &command,
                         std::vector<std::string> args,
-                        const bool &isBackgroundJob = false) {
+                        const bool &isBackgroundJob = false,
+                        const std::string &input = "") {
 
     std::optional<std::string> commandPath;
     if (command.starts_with("/") || command.starts_with("./")) {
@@ -246,8 +254,10 @@ private:
 
     int stdoutPipe[2];
     int stderrPipe[2];
+    int inputPipe[2];
 
-    if (pipe(stdoutPipe) == -1 || pipe(stderrPipe) == -1) {
+    if (pipe(stdoutPipe) == -1 || pipe(stderrPipe) == -1 ||
+        pipe(inputPipe) == -1) {
 
       return ExecResult::Error("pipe() failed");
     }
@@ -260,12 +270,18 @@ private:
         dup2(stdoutPipe[1], STDOUT_FILENO);
         dup2(stderrPipe[1], STDERR_FILENO);
       }
+      if (!str::isNullOrWhiteSpace(input)) {
+        dup2(inputPipe[0], STDIN_FILENO);
+      }
 
       close(stdoutPipe[0]);
       close(stdoutPipe[1]);
 
       close(stderrPipe[0]);
       close(stderrPipe[1]);
+
+      close(inputPipe[0]);
+      close(inputPipe[1]);
 
       auto argv = getArgsForExecvp(command, args);
 
@@ -282,11 +298,6 @@ private:
       close(stderrPipe[1]);
 
       if (isBackgroundJob) {
-        // close(stdoutPipe[0]);
-        // close(stderrPipe[0]);
-        // setNonBlocking(stdoutPipe[0]);
-        // setNonBlocking(stderrPipe[0]);
-        //
         Job job;
         job.id = jobs.size() + 1;
         job.pid = pid;
@@ -296,6 +307,10 @@ private:
         jobs.push_back(job);
         return ExecResult::Empty();
       }
+      if (!str::isNullOrWhiteSpace(input)) {
+        write(inputPipe[1], input.c_str(), input.size());
+      }
+      close(inputPipe[1]);
 
       std::string output;
       std::string error;
@@ -317,6 +332,7 @@ private:
 
       close(stdoutPipe[0]);
       close(stderrPipe[0]);
+      close(inputPipe[0]);
 
       int status;
       waitpid(pid, &status, 0);
@@ -390,10 +406,15 @@ private:
     }
     return ExecResult::Empty();
   }
-  ExecResult executeCommandV2(const parser::Command &command) {
+  ExecResult
+  executeCommandV2(const parser::Command &command,
+                   const std::vector<parser::Command> &commands = {}) {
     std::string message = "";
     Command commandEnum = getEnumCommand(str::Trim(command.program));
     std::vector<std::string> args(command.args.begin() + 1, command.args.end());
+    if (commands.size() > 1) {
+      return runPipeline(commands);
+    }
 
     if (command.args.back() == "&") {
       args.pop_back();
@@ -623,23 +644,156 @@ private:
   inline static std::unordered_map<std::string, std::string>
       registerdSpecifications{};
 
+  // Returns N-1 pipes for N commands. Each pipe is int[2].
+  // pipes[i][0] = read end, pipes[i][1] = write end
+  std::vector<std::array<int, 2>> createPipes(size_t commandCount) {
+    std::vector<std::array<int, 2>> pipes(commandCount - 1);
+    for (auto &p : pipes) {
+      if (pipe(p.data()) == -1) {
+        // clean up already-opened pipes before throwing
+        for (auto &opened : pipes) {
+          if (opened[0] != -1) {
+            close(opened[0]);
+            close(opened[1]);
+          }
+        }
+        throw std::runtime_error("pipe() failed");
+      }
+    }
+    return pipes;
+  }
+  // i      = index of this command (0-based)
+  // total  = total number of commands
+  // pipes  = all N-1 pipes
+  // returns the child pid, or -1 on failure
+  pid_t spawnChild(const parser::Command &cmd, size_t i, size_t total,
+                   const std::vector<std::array<int, 2>> &pipes,
+                   int outputPipe[2]) {
+    pid_t pid = fork();
+    if (pid != 0)
+      return pid;
+
+    if (i > 0)
+      dup2(pipes[i - 1][0], STDIN_FILENO);
+
+    if (i < total - 1)
+      dup2(pipes[i][1], STDOUT_FILENO);
+    else
+      dup2(outputPipe[1], STDOUT_FILENO); // last cmd → parent capture pipe
+
+    for (const auto &p : pipes) {
+      close(p[0]);
+      close(p[1]);
+    }
+    close(outputPipe[0]);
+    close(outputPipe[1]);
+    std::vector<std::string> args(cmd.args.begin() + 1, cmd.args.end());
+    auto argv = getArgsForExecvp(cmd.program, args);
+    execvp(argv[0], argv.data());
+    _exit(127);
+  }
+  ExecResult runPipeline(const std::vector<parser::Command> &commands) {
+    if (commands.empty())
+      return ExecResult::Empty();
+    if (commands.size() == 1) {
+      std::vector<std::string> args(commands.front().args.begin() + 1,
+                                    commands.front().args.end());
+      return runProgram(commands.at(0).program, args);
+    }
+
+    // 1. Create the inter-process pipes
+    std::vector<std::array<int, 2>> pipes;
+    try {
+      pipes = createPipes(commands.size());
+    } catch (const std::runtime_error &e) {
+      return ExecResult::Error(e.what());
+    }
+
+    // 2. Create one extra pipe to capture the last command's stdout
+    int outputPipe[2];
+
+    auto cleanPipes = [&]() {
+      for (auto &p : pipes) {
+        close(p[0]);
+        close(p[1]);
+      }
+    };
+
+    if (pipe(outputPipe) == -1) {
+      cleanPipes();
+      return ExecResult::Error("pipe() failed for output capture");
+    }
+
+    // 3. Spawn all children
+    std::vector<pid_t> pids;
+    for (size_t i = 0; i < commands.size(); ++i) {
+      pid_t pid =
+          spawnChild(commands[i], i, commands.size(), pipes, outputPipe);
+      if (pid == -1) {
+        // fork failed — kill already-spawned children and bail
+        for (pid_t p : pids)
+          kill(p, SIGTERM);
+
+        cleanPipes();
+        close(outputPipe[0]);
+        close(outputPipe[1]);
+        return ExecResult::Error("fork() failed");
+      }
+      pids.push_back(pid);
+    }
+
+    // 4. Parent closes ALL pipe ends — it doesn't use them
+    cleanPipes();
+    close(outputPipe[1]); // close write end so we get EOF when last child exits
+
+    // 5. Read last command's output
+    std::string output;
+    char buffer[4096];
+    ssize_t n;
+    while ((n = read(outputPipe[0], buffer, sizeof(buffer))) > 0) {
+      write(STDOUT_FILENO, buffer, n); // ✓ tester sees output in real time
+    }
+    close(outputPipe[0]);
+
+    // 6. Wait for ALL children (not just the last one)
+    int lastStatus = 0;
+    for (size_t i = 0; i < pids.size(); ++i) {
+      int status;
+      waitpid(pids[i], &status, 0);
+      if (i == pids.size() - 1 && WIFEXITED(status)) {
+        lastStatus = WEXITSTATUS(status);
+      }
+    }
+    return ExecResult::Empty();
+  }
+
 public:
   void run(const parser::ParsedCommand &parsedcommand, bool &exit) {
-    for (const auto &command : parsedcommand.commands) {
+
+    std::string input = "";
+    for (size_t i{0}; i < parsedcommand.commands.size(); ++i) {
+      const auto &command = parsedcommand.commands[i];
+
       if (command.redirections.empty()) {
-        auto output = executeCommandV2(command);
+
+        auto output = executeCommandV2(command, parsedcommand.commands);
+
         if (output.status == ExecResult::Status::Exit) {
           exit = true;
           return;
         }
+
         if (!str::isNullOrWhiteSpace(output.output)) {
           printOutput(output.output);
         }
+
         if (!str::isNullOrWhiteSpace(output.error)) {
           printOutput(output.error);
         }
-        continue;
+        break;
+        // continue;
       }
+
       auto redirection = command.redirections.front();
       auto output = executeCommandV2(command);
 
@@ -647,9 +801,7 @@ public:
         exit = true;
         return;
       }
-      // std::cout << endl
-      //           << "output: " << output.output << endl
-      //           << "error: " << output.error << endl;
+
       if (redirection.type == parser::RedirectionType::Stdout) {
         if (!str::isNullOrWhiteSpace(output.error)) {
           printOutput(output.error);
@@ -657,6 +809,7 @@ public:
         redirect(redirection, output.output);
         continue;
       }
+
       if (redirection.type == parser::RedirectionType::Stderr) {
         if (!str::isNullOrWhiteSpace(output.output)) {
           printOutput(output.output);
@@ -664,6 +817,7 @@ public:
         redirect(redirection, output.error);
         continue;
       }
+
       if (redirection.type == parser::RedirectionType::AppendErr) {
         if (!str::isNullOrWhiteSpace(output.output)) {
           printOutput(output.output);
@@ -671,6 +825,7 @@ public:
         redirect(redirection, output.error);
         continue;
       }
+
       if (redirection.type == parser::RedirectionType::AppendOut) {
         if (!str::isNullOrWhiteSpace(output.error)) {
           printOutput(output.error);
