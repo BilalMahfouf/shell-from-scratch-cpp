@@ -548,6 +548,16 @@ std::string readUserInputWithAutoComplete() {
   terminal.restore();
   return buffer;
 }
+void loadHistory() {
+  const char *env = getenv("HISTFILE");
+  if (env == nullptr)
+    return;
+
+  auto data = file_helpers::readDataFromFile(env);
+  if (data.empty())
+    return;
+  history = data;
+}
 
 int main() {
   // Flush after every std::cout / std:cerr
@@ -556,6 +566,7 @@ int main() {
 
   // // // execute();
   bool exit = false;
+  loadHistory();
 
   while (true) {
     // executer.checkBackgroundJobs();

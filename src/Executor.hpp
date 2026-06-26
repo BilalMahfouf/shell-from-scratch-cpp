@@ -540,6 +540,7 @@ private:
       return ExecResult::Empty();
     }
     if (args.front() == "-a") {
+      // this workds but it will generate bugs in the long run
       std::vector<std::string> h(history.begin() + prevHistory.size(),
                                  history.end());
       path = args.back();
