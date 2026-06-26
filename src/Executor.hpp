@@ -76,6 +76,7 @@ private:
     Complete,
     Jobs,
     History,
+    Declare,
     None
   };
 
@@ -96,6 +97,9 @@ private:
       return Command::Jobs;
     if (str == "history")
       return Command::History;
+    if (str == "declare") {
+      return Command::Declare;
+    }
     return Command::None;
   }
 
@@ -140,6 +144,8 @@ private:
       return "jobs";
     case Command::History:
       return "history";
+    case Command::Declare:
+      return "declare";
     }
     return "";
   }
