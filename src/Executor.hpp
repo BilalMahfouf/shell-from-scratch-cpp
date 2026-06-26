@@ -65,7 +65,8 @@ class Executor {
 private:
   inline static std::vector<Job> jobs;
   inline static int prevId = 0;
-  inline static std::vector<std::string> history;
+  inline static std::vector<std::string> history{};
+  inline static std::vector<std::string> prevHistory{};
   enum class Command {
     Exit = 0,
     Echo,
@@ -539,8 +540,11 @@ private:
       return ExecResult::Empty();
     }
     if (args.front() == "-a") {
+      std::vector<std::string> h(history.begin() + prevHistory.size(),
+                                 history.end());
       path = args.back();
-      file_helpers::appendDataTofile(path, history);
+      file_helpers::appendDataTofile(path, h);
+      prevHistory = history;
       return ExecResult::Empty();
     }
     return ExecResult::Success(getHistoryMessage());
