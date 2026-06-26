@@ -448,10 +448,22 @@ private:
     return str::JoinString(newResult, "\n");
   }
   ExecResult declare(const std::vector<std::string> &args) {
-    auto varName = args.back();
+
     if (args.front() == "-p") {
-      auto message = "declare: " + varName + ": not found";
+      auto varName = args.back();
+      auto env = getenv(varName.data());
+
+      std::string message = "";
+      if (env == nullptr) {
+        message = "declare: " + varName + ": not found";
+      } else {
+        message = "declare -- " + varName + "=\"" + env + "\"";
+      }
       return ExecResult::Success(message);
+    }
+    auto var = str::Split(args.back(), "=");
+    if (var.size() == 2) {
+      setEnviromentVariable(var.front(), var.back());
     }
     return ExecResult::Empty();
   }
