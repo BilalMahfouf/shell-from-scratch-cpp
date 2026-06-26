@@ -449,11 +449,22 @@ private:
   }
   ExecResult declare(const std::vector<std::string> &args) {
 
+    auto isValidChar = [&](char c) {
+      return c == '_' || std::isalpha(static_cast<unsigned char>(c));
+    };
+    auto isValidWord = [&](std::string word) {
+      for (const auto &c : word) {
+        if (!isValidChar(c)) {
+          return false;
+        }
+      }
+      return true;
+    };
+    std::string message = "";
     if (args.front() == "-p") {
       auto varName = args.back();
       auto env = getenv(varName.data());
 
-      std::string message = "";
       if (env == nullptr) {
         message = "declare: " + varName + ": not found";
       } else {
@@ -463,7 +474,12 @@ private:
     }
     auto var = str::Split(args.back(), "=");
     if (var.size() == 2) {
-      setEnviromentVariable(var.front(), var.back());
+      if (isValidWord(var.front())) {
+        setEnviromentVariable(var.front(), var.back());
+        return ExecResult::Empty();
+      }
+      message = "declare: `" + args.back() + "': not a valid identifier";
+      return ExecResult::Success(message);
     }
     return ExecResult::Empty();
   }
