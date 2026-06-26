@@ -505,17 +505,36 @@ private:
     case Command::Jobs:
       return getJobs();
     case Command::History: {
-      int sizeOfHistory = 0;
-      if (!args.empty()) {
-        sizeOfHistory = getHistorySize(args.front());
-      }
-      auto result = getTerminalHistory(sizeOfHistory);
-      return ExecResult::Success(result);
+      return getHistory(args);
     }
     case Command::None:
       return runProgram(command.program, args);
     }
     return ExecResult::Empty();
+  }
+  ExecResult getHistory(std::vector<std::string> args) {
+    auto getHistoryMessage = [&]() {
+      int sizeOfHistory = 0;
+      if (!args.empty()) {
+        sizeOfHistory = getHistorySize(args.front());
+      }
+      return getTerminalHistory(sizeOfHistory);
+    };
+
+    if (args.empty()) {
+      return ExecResult::Success(getHistoryMessage());
+    }
+
+    if (args.front() == "-r") {
+      auto path = args.back();
+      auto data = file_helpers::readDataFromFile(path);
+      if (!data.empty()) {
+        history.insert(history.end(), data.begin(), data.end());
+      }
+      return ExecResult::Empty();
+    } else {
+      return ExecResult::Success(getHistoryMessage());
+    }
   }
 
   int getHistorySize(const std::string &sizeStr) {
@@ -530,6 +549,7 @@ private:
     }
     return result;
   }
+
   inline static Command commandType;
 
   bool isJobCompleted(const Job &job) {
@@ -824,7 +844,7 @@ private:
 
 public:
   void run(const parser::ParsedCommand &parsedcommand, bool &exit,
-           std::vector<std::string> newHistory) {
+           std::vector<std::string> &newHistory) {
     history = newHistory;
     std::string input = "";
     auto type = getEnumCommand(parsedcommand.commands.back().program);
@@ -846,6 +866,7 @@ public:
           if (!str::isNullOrWhiteSpace(output.error)) {
             printOutput(output.error);
           }
+          newHistory = history;
           return;
         }
       }
@@ -866,6 +887,7 @@ public:
         if (!str::isNullOrWhiteSpace(output.error)) {
           printOutput(output.error);
         }
+        newHistory = history;
         break;
         // continue;
       }

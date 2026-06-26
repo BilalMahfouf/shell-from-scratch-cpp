@@ -1,5 +1,7 @@
 #pragma once
+#include "../str.h"
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <vector>
 
@@ -101,6 +103,20 @@ inline std::vector<DirectoryEntry> getDirectoryFiles(const std::string &path) {
     // std::cout << std::endl << entry.path().filename().string() << std::endl;
   }
 
+  return result;
+}
+
+std::vector<std::string> readDataFromFile(const fs::path &path) {
+  std::ifstream file(path);
+
+  std::string line;
+  std::vector<std::string> result{};
+
+  while (std::getline(file, line)) {
+    if (!str::isNullOrWhiteSpace(line)) {
+      result.push_back(line);
+    }
+  }
   return result;
 }
 
