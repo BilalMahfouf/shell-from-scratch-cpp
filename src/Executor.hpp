@@ -64,6 +64,7 @@ class Executor {
 private:
   inline static std::vector<Job> jobs;
   inline static int prevId = 0;
+  inline static std::vector<std::string> history;
   enum class Command {
     Exit = 0,
     Echo,
@@ -420,6 +421,15 @@ private:
     }
     return ExecResult::Empty();
   }
+  std::string getTerminalHistory() {
+    std::string line = "";
+    std::vector<std::string> result{};
+    for (size_t i{0}; i < history.size(); ++i) {
+      line = "\t" + std::to_string(i + 1) + "  " + history.at(i);
+      result.push_back(line);
+    }
+    return str::JoinString(result, "\n");
+  }
   ExecResult
   executeCommandV2(const parser::Command &command,
                    const std::vector<parser::Command> &commands = {}) {
@@ -484,6 +494,10 @@ private:
 
     case Command::Jobs:
       return getJobs();
+    case Command::History: {
+      auto result = getTerminalHistory();
+      return ExecResult::Success(result);
+    }
     case Command::None:
       return runProgram(command.program, args);
     }
@@ -782,8 +796,9 @@ private:
   }
 
 public:
-  void run(const parser::ParsedCommand &parsedcommand, bool &exit) {
-
+  void run(const parser::ParsedCommand &parsedcommand, bool &exit,
+           std::vector<std::string> newHistory) {
+    history = newHistory;
     std::string input = "";
     auto type = getEnumCommand(parsedcommand.commands.back().program);
 

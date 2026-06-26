@@ -564,7 +564,7 @@ int main() {
     std::vector<parser::Token> tokens = parser1.lex(input);
     parser::ParsedCommand parsedCommand = parser1.parseInput(tokens);
 
-    executer.run(parsedCommand, exit);
+    executer.run(parsedCommand, exit, history);
     if (exit) {
       std::cout << endl << "---------------------------------" << endl;
       std::cout << "good by";
