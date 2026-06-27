@@ -1,4 +1,5 @@
 #pragma once
+#include "./helpers/helper.hpp"
 #include "str.h"
 #include <cstddef>
 #include <execution>
@@ -307,11 +308,35 @@ public:
     result.push_back(t);
     return result;
   }
-  ParsedCommand parseInput(const std::vector<Token> tokens) {
+  void replaceEnvVarsWithTheirData(std::vector<Token> &tokens) {
+    for (auto &token : tokens) {
+      if (token.type != TokenType::WORD) {
+        continue;
+      }
+      auto index = token.value.find('$');
+      if (index == std::string::npos) {
+        continue;
+      }
+      auto result = helper::getEnvVarValue(token.value.substr(index + 1));
+      if (str::isNullOrWhiteSpace(result)) {
+        continue;
+      }
+      if (token.value.starts_with('$')) {
+        token.value = result;
+      } else {
+        auto temp = token.value.substr(0, index);
+        temp += result;
+        token.value = temp;
+      }
+    }
+    return;
+  }
+  ParsedCommand parseInput(std::vector<Token> tokens) {
     ParsedCommand parsedCommand;
     std::vector<Command> commands;
     std::vector<Redirection> redirection;
     Command command;
+    replaceEnvVarsWithTheirData(tokens);
 
     auto [args, index] = joinWords(tokens);
     command.args = args;

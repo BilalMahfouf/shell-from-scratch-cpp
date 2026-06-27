@@ -3,6 +3,7 @@
 #include "helpers/file_helpers.hpp"
 #include "str.h"
 #include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -452,9 +453,18 @@ private:
     auto isValidChar = [&](char c) {
       return c == '_' || std::isalpha(static_cast<unsigned char>(c));
     };
+    auto isValid = [&](char c) {
+      return c == '_' || std::isalpha(static_cast<unsigned char>(c)) ||
+             std::isdigit(static_cast<unsigned char>(c));
+    };
     auto isValidWord = [&](std::string word) {
-      for (const auto &c : word) {
-        if (!isValidChar(c)) {
+      for (size_t i{0}; i < word.size(); ++i) {
+        if (i == 0) {
+          if (!isValidChar(word.at(i))) {
+            return false;
+          }
+        }
+        if (!isValid(word.at(i))) {
           return false;
         }
       }
