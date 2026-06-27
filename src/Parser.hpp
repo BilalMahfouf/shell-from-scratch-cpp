@@ -308,7 +308,10 @@ public:
     result.push_back(t);
     return result;
   }
+  // when i wrote this code i wanted to pass the tests so it work but you will
+  // need some times to understand it
   void replaceEnvVarsWithTheirData(std::vector<Token> &tokens) {
+    std::string temp = "";
     for (auto &token : tokens) {
       if (token.type != TokenType::WORD) {
         continue;
@@ -318,13 +321,34 @@ public:
         continue;
       }
       auto result = helper::getEnvVarValue(token.value.substr(index + 1));
+      auto bracesBeginIndex = token.value.find("{");
+
+      if (bracesBeginIndex != std::string::npos) {
+        auto bracesEndIndex = token.value.find('}');
+        if (bracesEndIndex == std::string::npos) {
+          continue;
+        }
+        // bilal${PATH}bilal
+        auto varName = token.value.substr(
+            bracesBeginIndex + 1, bracesEndIndex - bracesBeginIndex - 1);
+
+        auto varValue = helper::getEnvVarValue(varName);
+        if (str::isNullOrWhiteSpace(varValue)) {
+          continue;
+        }
+        temp = token.value.substr(0, bracesBeginIndex - 1);
+        temp += varValue;
+        temp += token.value.substr(bracesEndIndex + 1);
+        token.value = temp;
+      }
+
       if (str::isNullOrWhiteSpace(result)) {
         continue;
       }
       if (token.value.starts_with('$')) {
         token.value = result;
       } else {
-        auto temp = token.value.substr(0, index);
+        temp = token.value.substr(0, index);
         temp += result;
         token.value = temp;
       }
