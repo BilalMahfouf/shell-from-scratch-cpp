@@ -29,6 +29,8 @@ enum class TokenType {
 struct Token {
   TokenType type;
   std::string value;
+
+  bool operator==(const Token &other) const { return value == other.value; }
 };
 enum class RedirectionType {
   Stdout,    // >
@@ -308,9 +310,21 @@ public:
     result.push_back(t);
     return result;
   }
+  void deleteTokens(std::vector<Token> &tokens,
+                    const std::vector<Token> &tokensToErase) {
+    for (const auto &t : tokensToErase) {
+      auto it = std::find(tokens.begin(), tokens.end(), t);
+      if (it != tokens.end()) {
+        tokens.erase(it);
+      }
+    }
+    return;
+  }
+
   // when i wrote this code i wanted to pass the tests so it work but you will
   // need some times to understand it
   void replaceEnvVarsWithTheirData(std::vector<Token> &tokens) {
+    std::vector<Token> tokensToErase{};
     std::string temp = "";
     for (auto &token : tokens) {
       if (token.type != TokenType::WORD) {
@@ -333,19 +347,23 @@ public:
             bracesBeginIndex + 1, bracesEndIndex - bracesBeginIndex - 1);
 
         auto varValue = helper::getEnvVarValue(varName);
-        if (str::isNullOrWhiteSpace(varValue)) {
-          continue;
-        }
         temp = token.value.substr(0, bracesBeginIndex - 1);
         temp += varValue;
         temp += token.value.substr(bracesEndIndex + 1);
+        if (str::isNullOrWhiteSpace(temp)) {
+          tokensToErase.push_back(token);
+          continue;
+        }
         token.value = temp;
+        continue;
       }
 
       if (str::isNullOrWhiteSpace(result)) {
+        tokensToErase.push_back(token);
         continue;
       }
       if (token.value.starts_with('$')) {
+
         token.value = result;
       } else {
         temp = token.value.substr(0, index);
@@ -353,6 +371,7 @@ public:
         token.value = temp;
       }
     }
+    deleteTokens(tokens, tokensToErase);
     return;
   }
   ParsedCommand parseInput(std::vector<Token> tokens) {
