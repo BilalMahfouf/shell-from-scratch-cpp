@@ -227,10 +227,11 @@ std::string getBufferFromTokens(const std::vector<parser::Token> &tokens) {
   }
   return result;
 }
-std::string readUserInputWithAutoComplete() {
-  static std::vector<std::string> history;
-  static int historyIndex = 0;
+static std::vector<std::string> history{};
+static std::vector<std::string> prevHistory{};
+static int historyIndex = 0;
 
+std::string readUserInputWithAutoComplete() {
   bool isSecondTab = true;
 
   Terminal terminal;
@@ -548,6 +549,28 @@ std::string readUserInputWithAutoComplete() {
   terminal.restore();
   return buffer;
 }
+void loadHistory() {
+  const char *env = getenv("HISTFILE");
+  if (env == nullptr)
+    return;
+
+  auto data = file_helpers::readDataFromFile(env);
+  if (data.empty())
+    return;
+  history = data;
+}
+void writeHistoryToHistoryFile() {
+  const char *env = getenv("HISTFILE");
+  if (env == nullptr)
+    return;
+  file_helpers::writeDataTofile(env, history);
+}
+void appendHistoryToHistoryFile() {
+  const char *env = getenv("HISTFILE");
+  if (env == nullptr)
+    return;
+  file_helpers::appendDataTofile(env, history);
+}
 
 int main() {
   // Flush after every std::cout / std:cerr
@@ -556,6 +579,7 @@ int main() {
 
   // // // execute();
   bool exit = false;
+  loadHistory();
 
   while (true) {
     // executer.checkBackgroundJobs();
@@ -564,11 +588,13 @@ int main() {
     std::vector<parser::Token> tokens = parser1.lex(input);
     parser::ParsedCommand parsedCommand = parser1.parseInput(tokens);
 
-    executer.run(parsedCommand, exit);
+    executer.run(parsedCommand, exit, history);
     if (exit) {
+      writeHistoryToHistoryFile();
       std::cout << endl << "---------------------------------" << endl;
       std::cout << "good by";
       std::cout << endl << "---------------------------------" << endl;
+
       break;
     }
   }

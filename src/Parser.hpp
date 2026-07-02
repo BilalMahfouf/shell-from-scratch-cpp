@@ -1,4 +1,5 @@
 #pragma once
+#include "./helpers/helper.hpp"
 #include "str.h"
 #include <cstddef>
 #include <execution>
@@ -28,6 +29,8 @@ enum class TokenType {
 struct Token {
   TokenType type;
   std::string value;
+
+  bool operator==(const Token &other) const { return value == other.value; }
 };
 enum class RedirectionType {
   Stdout,    // >
@@ -307,11 +310,76 @@ public:
     result.push_back(t);
     return result;
   }
-  ParsedCommand parseInput(const std::vector<Token> tokens) {
+  void deleteTokens(std::vector<Token> &tokens,
+                    const std::vector<Token> &tokensToErase) {
+    for (const auto &t : tokensToErase) {
+      auto it = std::find(tokens.begin(), tokens.end(), t);
+      if (it != tokens.end()) {
+        tokens.erase(it);
+      }
+    }
+    return;
+  }
+
+  // when i wrote this code i wanted to pass the tests so it work but you will
+  // need some times to understand it
+  void replaceEnvVarsWithTheirData(std::vector<Token> &tokens) {
+    std::vector<Token> tokensToErase{};
+    std::string temp = "";
+    for (auto &token : tokens) {
+      if (token.type != TokenType::WORD) {
+        continue;
+      }
+      auto index = token.value.find('$');
+      if (index == std::string::npos) {
+        continue;
+      }
+      auto result = helper::getEnvVarValue(token.value.substr(index + 1));
+      auto bracesBeginIndex = token.value.find("{");
+
+      if (bracesBeginIndex != std::string::npos) {
+        auto bracesEndIndex = token.value.find('}');
+        if (bracesEndIndex == std::string::npos) {
+          continue;
+        }
+        // bilal${PATH}bilal
+        auto varName = token.value.substr(
+            bracesBeginIndex + 1, bracesEndIndex - bracesBeginIndex - 1);
+
+        auto varValue = helper::getEnvVarValue(varName);
+        temp = token.value.substr(0, bracesBeginIndex - 1);
+        temp += varValue;
+        temp += token.value.substr(bracesEndIndex + 1);
+        if (str::isNullOrWhiteSpace(temp)) {
+          tokensToErase.push_back(token);
+          continue;
+        }
+        token.value = temp;
+        continue;
+      }
+
+      if (str::isNullOrWhiteSpace(result)) {
+        tokensToErase.push_back(token);
+        continue;
+      }
+      if (token.value.starts_with('$')) {
+
+        token.value = result;
+      } else {
+        temp = token.value.substr(0, index);
+        temp += result;
+        token.value = temp;
+      }
+    }
+    deleteTokens(tokens, tokensToErase);
+    return;
+  }
+  ParsedCommand parseInput(std::vector<Token> tokens) {
     ParsedCommand parsedCommand;
     std::vector<Command> commands;
     std::vector<Redirection> redirection;
     Command command;
+    replaceEnvVarsWithTheirData(tokens);
 
     auto [args, index] = joinWords(tokens);
     command.args = args;

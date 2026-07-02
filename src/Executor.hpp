@@ -3,9 +3,11 @@
 #include "helpers/file_helpers.hpp"
 #include "str.h"
 #include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <fcntl.h>
 #include <filesystem>
 #include <format>
@@ -64,7 +66,20 @@ class Executor {
 private:
   inline static std::vector<Job> jobs;
   inline static int prevId = 0;
-  enum class Command { Exit = 0, Echo, Type, Pwd, Cd, Complete, Jobs, None };
+  inline static std::vector<std::string> history{};
+  inline static std::vector<std::string> prevHistory{};
+  enum class Command {
+    Exit = 0,
+    Echo,
+    Type,
+    Pwd,
+    Cd,
+    Complete,
+    Jobs,
+    History,
+    Declare,
+    None
+  };
 
   Command getEnumCommand(const std::string &str) {
     if (str == "exit")
@@ -81,6 +96,11 @@ private:
       return Command::Complete;
     if (str == "jobs")
       return Command::Jobs;
+    if (str == "history")
+      return Command::History;
+    if (str == "declare") {
+      return Command::Declare;
+    }
     return Command::None;
   }
 
@@ -123,6 +143,10 @@ private:
       return "complete";
     case Command::Jobs:
       return "jobs";
+    case Command::History:
+      return "history";
+    case Command::Declare:
+      return "declare";
     }
     return "";
   }
@@ -406,6 +430,69 @@ private:
     }
     return ExecResult::Empty();
   }
+  std::string getTerminalHistory(int size = 0) {
+    std::string line = "";
+    std::vector<std::string> result{};
+    for (size_t i{0}; i < history.size(); ++i) {
+      line = "\t" + std::to_string(i + 1) + "  " + history.at(i);
+      result.push_back(line);
+    }
+    if (size == 0 || size > history.size()) {
+      return str::JoinString(result, "\n");
+    }
+    std::reverse(result.begin(), result.end());
+    std::vector<std::string> newResult{};
+    for (size_t i{0}; i < size; ++i) {
+      newResult.push_back(result.at(i));
+    }
+    std::reverse(newResult.begin(), newResult.end());
+    return str::JoinString(newResult, "\n");
+  }
+  ExecResult declare(const std::vector<std::string> &args) {
+
+    auto isValidChar = [&](char c) {
+      return c == '_' || std::isalpha(static_cast<unsigned char>(c));
+    };
+    auto isValid = [&](char c) {
+      return c == '_' || std::isalpha(static_cast<unsigned char>(c)) ||
+             std::isdigit(static_cast<unsigned char>(c));
+    };
+    auto isValidWord = [&](std::string word) {
+      for (size_t i{0}; i < word.size(); ++i) {
+        if (i == 0) {
+          if (!isValidChar(word.at(i))) {
+            return false;
+          }
+        }
+        if (!isValid(word.at(i))) {
+          return false;
+        }
+      }
+      return true;
+    };
+    std::string message = "";
+    if (args.front() == "-p") {
+      auto varName = args.back();
+      auto env = getenv(varName.data());
+
+      if (env == nullptr) {
+        message = "declare: " + varName + ": not found";
+      } else {
+        message = "declare -- " + varName + "=\"" + env + "\"";
+      }
+      return ExecResult::Success(message);
+    }
+    auto var = str::Split(args.back(), "=");
+    if (var.size() == 2) {
+      if (isValidWord(var.front())) {
+        setEnviromentVariable(var.front(), var.back());
+        return ExecResult::Empty();
+      }
+      message = "declare: `" + args.back() + "': not a valid identifier";
+      return ExecResult::Success(message);
+    }
+    return ExecResult::Empty();
+  }
   ExecResult
   executeCommandV2(const parser::Command &command,
                    const std::vector<parser::Command> &commands = {}) {
@@ -470,11 +557,67 @@ private:
 
     case Command::Jobs:
       return getJobs();
+    case Command::History: {
+      return getHistory(args);
+    }
+    case Command::Declare:
+      return declare(args);
     case Command::None:
       return runProgram(command.program, args);
     }
     return ExecResult::Empty();
   }
+  ExecResult getHistory(std::vector<std::string> args) {
+    auto getHistoryMessage = [&]() {
+      int sizeOfHistory = 0;
+      if (!args.empty()) {
+        sizeOfHistory = getHistorySize(args.front());
+      }
+      return getTerminalHistory(sizeOfHistory);
+    };
+
+    if (args.empty()) {
+      return ExecResult::Success(getHistoryMessage());
+    }
+    fs::path path;
+    if (args.front() == "-r") {
+      path = args.back();
+      auto data = file_helpers::readDataFromFile(path);
+      if (!data.empty()) {
+        history.insert(history.end(), data.begin(), data.end());
+      }
+      return ExecResult::Empty();
+    }
+    if (args.front() == "-w") {
+      path = args.back();
+      file_helpers::writeDataTofile(path, history);
+      return ExecResult::Empty();
+    }
+    if (args.front() == "-a") {
+      // this workds but it will generate bugs in the long run
+      std::vector<std::string> h(history.begin() + prevHistory.size(),
+                                 history.end());
+      path = args.back();
+      file_helpers::appendDataTofile(path, h);
+      prevHistory = history;
+      return ExecResult::Empty();
+    }
+    return ExecResult::Success(getHistoryMessage());
+  }
+
+  int getHistorySize(const std::string &sizeStr) {
+    if (str::isNullOrWhiteSpace(sizeStr)) {
+      return 0;
+    }
+    int result = 0;
+    try {
+      result = std::stoi(sizeStr);
+    } catch (const std::exception &e) {
+      return 0;
+    }
+    return result;
+  }
+
   inline static Command commandType;
 
   bool isJobCompleted(const Job &job) {
@@ -768,8 +911,9 @@ private:
   }
 
 public:
-  void run(const parser::ParsedCommand &parsedcommand, bool &exit) {
-
+  void run(const parser::ParsedCommand &parsedcommand, bool &exit,
+           std::vector<std::string> &newHistory) {
+    history = newHistory;
     std::string input = "";
     auto type = getEnumCommand(parsedcommand.commands.back().program);
 
@@ -790,6 +934,7 @@ public:
           if (!str::isNullOrWhiteSpace(output.error)) {
             printOutput(output.error);
           }
+          newHistory = history;
           return;
         }
       }
@@ -810,6 +955,7 @@ public:
         if (!str::isNullOrWhiteSpace(output.error)) {
           printOutput(output.error);
         }
+        newHistory = history;
         break;
         // continue;
       }
